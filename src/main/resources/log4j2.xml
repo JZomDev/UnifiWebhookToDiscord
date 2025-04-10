@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration name="Unfi Webhook to Discord" status="DEBUG" strict="true">
+	<Properties>
+		<Property name="LOG_DIR">/var/log</Property>
+	</Properties>
+
+	<Appenders>
+		<Console name="Console Appender">
+			<PatternLayout>
+				<Pattern><![CDATA[%d <%-5p> <%-35.35t> <%x> <%X> <%50.50c> %m%n]]></Pattern>
+			</PatternLayout>
+			<Filters>
+				<ThresholdFilter level="DEBUG"/>
+			</Filters>
+		</Console>
+		<RollingFile
+				name="File Appender"
+				fileName="${LOG_DIR}/UnifiWebhookToDiscord.log"
+				filePattern="${LOG_DIR}/UnifiWebhookToDiscord.%d{dd-MMM-yyyy}.log"
+				ignoreExceptions="false">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss} %-5p %m%n</Pattern>
+			</PatternLayout>
+			<Filters>
+				<ThresholdFilter level="INFO"/>
+			</Filters>
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1"/>
+			</Policies>
+			<DefaultRolloverStrategy max="5"/>
+		</RollingFile>
+	</Appenders>
+	<Loggers>
+		<Root level="DEBUG">
+			<AppenderRef ref="Console Appender"/>
+			<AppenderRef ref="File Appender"/>
+		</Root>
+	</Loggers>
+</Configuration>
