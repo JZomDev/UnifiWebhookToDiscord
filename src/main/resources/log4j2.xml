@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration name="Unfi Webhook to Discord" status="INFO" strict="true">
+<Configuration name="Unfi Webhook to Discord" status="DEBUG" strict="true">
 	<Properties>
 		<Property name="LOG_DIR">/var/log</Property>
 	</Properties>
@@ -10,7 +10,7 @@
 				<Pattern><![CDATA[%d <%-5p> <%-35.35t> <%x> <%X> <%50.50c> %m%n]]></Pattern>
 			</PatternLayout>
 			<Filters>
-				<ThresholdFilter level="INFO"/>
+				<ThresholdFilter level="DEBUG"/>
 			</Filters>
 		</Console>
 		<RollingFile

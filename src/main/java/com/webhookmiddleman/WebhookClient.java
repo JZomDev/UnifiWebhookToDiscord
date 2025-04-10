@@ -1,4 +1,4 @@
-package org.unifiwebhook;
+package com.webhookmiddleman;
 
 import java.io.BufferedReader;
 import java.io.IOException;

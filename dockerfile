@@ -1,18 +1,20 @@
 # temp container to build using gradle
-FROM gradle:7.6.3-jdk11-alpine AS builder
+FROM maven:3.8.4-openjdk-17-slim AS builder
 
-COPY . /home/gradle/src
+# Set the working directory in the container
+WORKDIR /app
+# Copy the pom.xml and the project files to the container
+COPY pom.xml .
+COPY src ./src
 
-WORKDIR /home/gradle/src
-
-RUN gradle fatJar --no-daemon --info
+RUN mvn clean package -DskipTests
 
 # package stage
-FROM openjdk:11
+FROM openjdk:17
 
 RUN mkdir -p /srv
 WORKDIR /srv
-COPY --from=builder /home/gradle/src/build/libs/UnifiWebhookToDiscord.jar /srv
+COPY --from=builder /app/target/Unifi-Webhook-To-Discord-1.0.jar /srv
 
 USER 99:100
-CMD ["java", "-jar", "UnifiWebhookToDiscord.jar"]
+CMD ["java", "-jar", "Unifi-Webhook-To-Discord-1.0.jar"]

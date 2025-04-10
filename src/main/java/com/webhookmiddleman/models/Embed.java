@@ -1,4 +1,4 @@
-package org.models;
+package com.webhookmiddleman.models;
 
 import org.json.JSONArray;
 import org.json.JSONException;

@@ -1,4 +1,4 @@
-package org.unifiwebhook;
+package com.webhookmiddleman;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -8,11 +8,10 @@ import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.models.Embed;
-import org.models.Field;
-import org.models.Footer;
-import org.models.Message;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.webhookmiddleman.models.Embed;
+import com.webhookmiddleman.models.Field;
+import com.webhookmiddleman.models.Footer;
+import com.webhookmiddleman.models.Message;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +25,6 @@ public class WebhookController
 	private static final Logger logger = LogManager.getLogger(WebhookController.class);
 
 	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-	@Autowired
-	WebhookService webhookService;
 
 	@PostMapping("/data")
 	public ResponseEntity<String> receiveWebhook(
@@ -53,7 +49,7 @@ public class WebhookController
 				String key = triggers.getJSONObject(i).getString("key");
 				String macAddress = getMacAdrress(device);
 
-				String deviceName = Main.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
+				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
 				Embed embed = createDiscordEmbed(key, deviceName, readable_timestamp);
 
 				postToDiscord(embed);
@@ -69,12 +65,36 @@ public class WebhookController
 			.setUsername("Unifi Protect")
 			.setAvatarUrl("https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 
-		webhookService.sendWebhook(Main.DISCORD_WEBHOOK, message, embed);
+		sendWebhook(Application.DISCORD_WEBHOOK, message, embed);
+	}
+
+	public void sendWebhook(String url, Message message, Embed embed)
+	{
+		new WebhookManager()
+			.setMessage(message)
+			.setChannelUrl(url)
+			.setEmbeds(new Embed[]{embed})
+			.setListener(new WebhookClient.Callback()
+			{
+				@Override
+				public void onSuccess(String response)
+				{
+					logger.info("Message sent successfully");
+				}
+
+				@Override
+				public void onFailure(int statusCode, String errorMessage)
+				{
+					logger.info("Code: " + statusCode + " error: " + errorMessage);
+				}
+			})
+			.exec();
 	}
 
 	private Embed createDiscordEmbed(String trigger, String device, String timestamp) throws JSONException
 	{
 		Embed embed = new Embed();
+		// I am not a fan of the repeated author within an embed
 //		Author author = new Author("Unifi Protect",  "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 //		embed.setAuthor(author);
 		embed.setTitle("Alert Triggered :camera_with_flash:");
@@ -94,6 +114,7 @@ public class WebhookController
 		return sdf.format(new Date(timestamp));
 	}
 
+	// coverts ABCDEFGHJ -> AB:DE:FG:HJ
 	private String getMacAdrress(String device)
 	{
 		return device.replaceAll("(..)(?!$)", "$1:");

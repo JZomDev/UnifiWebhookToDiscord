@@ -1,13 +1,13 @@
-package org.unifiwebhook;
+package com.webhookmiddleman;
 
+import com.webhookmiddleman.models.Embed;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.models.Embed;
-import org.models.Message;
-import org.unifiwebhook.WebhookClient.Callback;
+import com.webhookmiddleman.models.Message;
+import com.webhookmiddleman.WebhookClient.Callback;
 
 public class WebhookManager
 {
