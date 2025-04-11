@@ -10,12 +10,16 @@ Example of a config:
 
 You can add as many variables as you want. The variable name must be the Mac Address of the device you want alerts from, otherwise it will be called unknown device. 
 
-When set up correctly you will see:
+The Mac Address can be found here:
 
-![image](https://github.com/user-attachments/assets/b67abc97-fa61-4cfb-9b93-7be64e50f0b5)
+![image](https://github.com/user-attachments/assets/9a8c5451-0cbe-44ba-bd15-475641497b49)
 
 The Unifi set up is:
 
 ![image](https://github.com/user-attachments/assets/82b9e438-32c3-4b64-ab75-1bbd13bfbd6a)
 
 The IP:PORT is the IP:PORT you set up for the docker container
+
+When set up correctly you will see:
+
+![image](https://github.com/user-attachments/assets/b67abc97-fa61-4cfb-9b93-7be64e50f0b5)
