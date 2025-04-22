@@ -1,5 +1,6 @@
 package com.webhookmiddleman.models;
 
+import java.util.Arrays;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -83,6 +84,21 @@ public class Embed
 		return this;
 	}
 
+	public Embed addField(Field field)
+	{
+		if (this.fields == null)
+		{
+			this.fields = new Field[0];
+		}
+		this.fields = addElement(this.fields, field);
+		return this;
+	}
+
+	public static <T> T[] addElement(T[] originalArray, T newItem) {
+		T[] newArray = Arrays.copyOf(originalArray, originalArray.length + 1);
+		newArray[originalArray.length] = newItem;
+		return newArray;
+	}
 
 	public JSONObject get()
 	{

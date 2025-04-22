@@ -40,17 +40,18 @@ public class WebhookController
 		{
 			JSONObject alarm = data.getJSONObject("alarm");
 			JSONArray triggers = alarm.getJSONArray("triggers");
+			String eventLocalLink = alarm.has("eventLocalLink") ? alarm.getString("eventLocalLink") : null;
 			Long timestamp = data.getLong("timestamp");
 			String readable_timestamp = getUsableDate(timestamp);
 
 			for (int i = 0; i < triggers.length(); i++)
 			{
 				String device = triggers.getJSONObject(i).getString("device");
-				String key = triggers.getJSONObject(i).getString("key");
+				String trigger = triggers.getJSONObject(i).getString("key");
 				String macAddress = getMacAdrress(device);
 
 				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
-				Embed embed = createDiscordEmbed(key, deviceName, readable_timestamp);
+				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, eventLocalLink);
 
 				postToDiscord(embed);
 			}
@@ -91,7 +92,7 @@ public class WebhookController
 			.exec();
 	}
 
-	private Embed createDiscordEmbed(String trigger, String device, String timestamp) throws JSONException
+	private Embed createDiscordEmbed(String trigger, String deviceName, String timestamp, String eventLocalLink) throws JSONException
 	{
 		Embed embed = new Embed();
 		// I am not a fan of the repeated author within an embed
@@ -102,9 +103,17 @@ public class WebhookController
 		embed.setFooter(footer);
 		embed.setColor(16711680);
 		Field triggerField = new Field("Trigger", trigger, true);
-		Field deviceField = new Field("Device", device, true);
+		Field deviceField = new Field("Device", deviceName, true);
 		Field timestampeField = new Field("Timestamp", timestamp, false);
-		embed.setFields(new Field[]{triggerField, deviceField, timestampeField});
+
+		embed.addField(triggerField);
+		embed.addField(deviceField);
+		if (eventLocalLink != null)
+		{
+			Field eventLocalLinkField = new Field("Captured Event", String.format("[Local IP Link](%s)", eventLocalLink), true);
+			embed.addField(eventLocalLinkField);
+		}
+		embed.addField(timestampeField);
 		embed.setTimestamp(java.time.Instant.now().toString());
 		return embed;
 	}
