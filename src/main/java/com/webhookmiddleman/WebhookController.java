@@ -40,7 +40,17 @@ public class WebhookController
 		{
 			JSONObject alarm = data.getJSONObject("alarm");
 			JSONArray triggers = alarm.getJSONArray("triggers");
+			String UUID_1 = Application.UUID_1;
+			String UUID_2 = Application.UUID_2;
 			String eventLocalLink = alarm.has("eventLocalLink") ? alarm.getString("eventLocalLink") : null;
+			String eventPath = alarm.has("eventPath") ? alarm.getString("eventPath") : null;
+			boolean useRemote = !UUID_1.isEmpty() && !UUID_2.isEmpty(); // leave UUIDs blank to use local instead
+			if (eventPath != null && useRemote)
+			{
+				// replace local event with unifi protect full name
+				// eventPath=/protect/events/event/id_of_event_here
+				eventPath = String.format("https://unifi.ui.com/consoles/%s:%s" + eventPath, UUID_1, UUID_2);
+			}
 			Long timestamp = data.getLong("timestamp");
 			String readable_timestamp = getUsableDate(timestamp);
 
@@ -51,7 +61,7 @@ public class WebhookController
 				String macAddress = getMacAdrress(device);
 
 				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
-				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, eventLocalLink);
+				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, (!useRemote ? eventLocalLink : eventPath), useRemote);
 
 				postToDiscord(embed);
 			}
@@ -92,7 +102,7 @@ public class WebhookController
 			.exec();
 	}
 
-	private Embed createDiscordEmbed(String trigger, String deviceName, String timestamp, String eventLocalLink) throws JSONException
+	private Embed createDiscordEmbed(String trigger, String deviceName, String timestamp, String eventLink, boolean remote) throws JSONException
 	{
 		Embed embed = new Embed();
 		// I am not a fan of the repeated author within an embed
@@ -108,9 +118,10 @@ public class WebhookController
 
 		embed.addField(triggerField);
 		embed.addField(deviceField);
-		if (eventLocalLink != null)
+		if (eventLink != null)
 		{
-			Field eventLocalLinkField = new Field("Captured Event", String.format("[Local IP Link](%s)", eventLocalLink), true);
+			String linkText = remote ?  "Remote Link" : "Local IP Link";
+			Field eventLocalLinkField = new Field("Captured Event", String.format("[%s](%s)", linkText, eventLink), true);
 			embed.addField(eventLocalLinkField);
 		}
 		embed.addField(timestampeField);

@@ -23,6 +23,9 @@ public class Application
 	public static String PORT = "8080";
 	public static HashMap<String, String> macToDeviceName = new HashMap<>();
 
+	public static String UUID_1 = "";
+	public static String UUID_2 = "";
+
 	static
 	{
 		Map<String, String> environmentVariables = System.getenv();
@@ -36,6 +39,14 @@ public class Application
 			if (envName.equals("port"))
 			{
 				PORT = environmentVariables.get(envName);
+			}
+			if (envName.equals("UUID_1"))
+			{
+				UUID_1 = environmentVariables.get(envName);
+			}
+			if (envName.equals("UUID_2"))
+			{
+				UUID_2 = environmentVariables.get(envName);
 			}
 
 			if (MAC_ADDRESS_PATTERN.matcher(envName).matches())
