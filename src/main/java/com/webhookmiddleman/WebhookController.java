@@ -2,6 +2,7 @@ package com.webhookmiddleman;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +26,62 @@ public class WebhookController
 	private static final Logger logger = LogManager.getLogger(WebhookController.class);
 
 	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	static Map<String, String> TRIGGER_MAP = new HashMap<>();
+
+	static
+	{
+		TRIGGER_MAP.put("motion", "Motion");
+		TRIGGER_MAP.put("line_crossed", "LineCrossed");
+		TRIGGER_MAP.put("person", "Person");
+		TRIGGER_MAP.put("vehicle", "Vehicle");
+		TRIGGER_MAP.put("animal", "Animal");
+		TRIGGER_MAP.put("package", "Package");
+		TRIGGER_MAP.put("audio_alarm_speak", "AudioAlarmSpeak");
+		TRIGGER_MAP.put("audio_alarm_baby_cry", "AudioAlarmBabyCry");
+		TRIGGER_MAP.put("audio_alarm_bark", "AudioAlarmBark");
+		TRIGGER_MAP.put("audio_alarm_co", "AudioAlarmCo");
+		TRIGGER_MAP.put("audio_alarm_smoke", "AudioAlarmSmoke");
+		TRIGGER_MAP.put("audio_alarm_car_horn", "AudioAlarmCarHorn");
+		TRIGGER_MAP.put("audio_alarm_glass_break", "AudioAlarmGlassBreak");
+		TRIGGER_MAP.put("audio_alarm_siren", "AudioAlarmSiren");
+		TRIGGER_MAP.put("audio_alarm_burglar", "AudioAlarmBurglar");
+		TRIGGER_MAP.put("face_known", "FaceKnown");
+		TRIGGER_MAP.put("face_unknown", "FaceUnknown");
+		TRIGGER_MAP.put("face_of_interest", "FaceOfInterest");
+		TRIGGER_MAP.put("license_plate_known", "LicensePlateKnown");
+		TRIGGER_MAP.put("license_plate_unknown", "LicensePlateUnknown");
+		TRIGGER_MAP.put("license_plate_of_interest", "LicensePlateOfInterest");
+		TRIGGER_MAP.put("ring", "Ring");
+		TRIGGER_MAP.put("sensor_battery_low", "SensorBatteryLow");
+		TRIGGER_MAP.put("sensor_door_opened", "SensorDoorOpened");
+		TRIGGER_MAP.put("sensor_door_closed", "SensorDoorClosed");
+		TRIGGER_MAP.put("sensor_extreme_value", "SensorExtremeValue");
+		TRIGGER_MAP.put("sensor_water_leak", "SensorWaterLeak");
+		TRIGGER_MAP.put("sensor_alarm", "SensorAlarm");
+		TRIGGER_MAP.put("sensor_motion", "SensorMotion");
+		TRIGGER_MAP.put("device_issue", "DeviceIssue");
+		TRIGGER_MAP.put("application_issue", "ApplicationIssue");
+		TRIGGER_MAP.put("device_adoption_state_changed", "DeviceAdoptionStateChanged");
+		TRIGGER_MAP.put("camera_utilization_limit", "CameraUtilizationLimit");
+		TRIGGER_MAP.put("device_discovery", "DeviceDiscovery");
+		TRIGGER_MAP.put("device_update_status_change", "DeviceUpdateStatusChange");
+		TRIGGER_MAP.put("admin_access", "AdminAccess");
+		TRIGGER_MAP.put("admin_settings_change", "AdminSettingsChange");
+		TRIGGER_MAP.put("admin_recording_clips_manipulations", "AdminRecordingClipsManipulations");
+		TRIGGER_MAP.put("admin_geolocation", "AdminGeolocation");
+		TRIGGER_MAP.put("smart_loiter_detection", "Loitering");
+		TRIGGER_MAP.put("fingerprint_registered", "FingerprintRegistered");
+		TRIGGER_MAP.put("fingerprint_unknown", "FingerprintUnknown");
+		TRIGGER_MAP.put("nfc_registered", "NfcRegistered");
+		TRIGGER_MAP.put("nfc_unknown", "NfcUnknown");
+		TRIGGER_MAP.put("classification_emergency", "ClassificationEmergency");
+		TRIGGER_MAP.put("classification_suspicious_objects", "ClassificationSuspiciousObjects");
+		TRIGGER_MAP.put("classification_face_covering", "ClassificationFaceCovering");
+		TRIGGER_MAP.put("classification_dangerous_animals", "ClassificationDangerousAnimals");
+		TRIGGER_MAP.put("classification_weapon", "ClassificationWeapon");
+		TRIGGER_MAP.put("ai_nls", "AiKeyNls");
+		TRIGGER_MAP.put("unknown", "Unknown");
+	}
 
 	@PostMapping("/data")
 	public ResponseEntity<String> receiveWebhook(
@@ -57,7 +114,7 @@ public class WebhookController
 			for (int i = 0; i < triggers.length(); i++)
 			{
 				String device = triggers.getJSONObject(i).getString("device");
-				String trigger = triggers.getJSONObject(i).getString("key");
+				String trigger = TRIGGER_MAP.getOrDefault(triggers.getJSONObject(i).getString("key"), "Unknown");
 				String macAddress = getMacAdrress(device);
 
 				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
