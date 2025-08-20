@@ -35,23 +35,28 @@ public class Application
 			if (envName.equals("webhook"))
 			{
 				DISCORD_WEBHOOK = environmentVariables.get(envName);
+				logger.info("Discord webhook: '{}'", DISCORD_WEBHOOK);
 			}
 			if (envName.equals("port"))
 			{
 				PORT = environmentVariables.get(envName);
+				logger.info("Port: '{}'", PORT);
 			}
 			if (envName.equals("UUID_1"))
 			{
 				UUID_1 = environmentVariables.get(envName);
+				logger.info("UUID_1 (Console UUID for remote viewing): '{}'", UUID_1);
 			}
 			if (envName.equals("UUID_2"))
 			{
 				UUID_2 = environmentVariables.get(envName);
+				logger.info("UUID_2 (Console UUID (other value) for remote viewing): '{}'", UUID_2);
 			}
 
 			if (MAC_ADDRESS_PATTERN.matcher(envName).matches())
 			{
 				macToDeviceName.put(envName, environmentVariables.get(envName));
+				logger.info("MAC ADDRESS Supplied: '{}'", envName);
 			}
 		}
 	}
@@ -81,7 +86,6 @@ public class Application
 			catch (Exception e)
 			{
 				logger.error(e);
-				e.printStackTrace();
 			}
 		}
 	}
