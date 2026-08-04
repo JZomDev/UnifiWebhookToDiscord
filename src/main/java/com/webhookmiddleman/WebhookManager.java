@@ -16,6 +16,7 @@ public class WebhookManager
 	private final String channelId = "";
 	private final String token = "";
 	private Embed[] embeds = null;
+	private byte[] image = null;
 
 	WebhookClient.Callback callback;
 	private Message message;
@@ -93,6 +94,18 @@ public class WebhookManager
 	}
 
 	/**
+	 * Sets an image to upload alongside the message as a Discord attachment.
+	 *
+	 * @param image raw image bytes, or null/empty to send no attachment.
+	 * @return this WebhookManager.
+	 */
+	public WebhookManager setImage(byte[] image)
+	{
+		this.image = image;
+		return this;
+	}
+
+	/**
 	 * Executes the sending of the message to the specified webhook.
 	 *
 	 * @return An instance of WebhookManager.
@@ -102,7 +115,7 @@ public class WebhookManager
 		JSONObject obj = createJsonObject();
 
 		WebhookClient wc = new WebhookClient(callback);
-		wc.send(webhookUrl, obj);
+		wc.send(webhookUrl, obj, image);
 
 		return this;
 	}

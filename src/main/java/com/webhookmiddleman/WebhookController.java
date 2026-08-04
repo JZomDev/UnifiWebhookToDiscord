@@ -12,6 +12,7 @@ import org.json.JSONObject;
 import com.webhookmiddleman.models.Embed;
 import com.webhookmiddleman.models.Field;
 import com.webhookmiddleman.models.Footer;
+import com.webhookmiddleman.models.Image;
 import com.webhookmiddleman.models.Message;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -97,6 +98,7 @@ public class WebhookController
 		{
 			JSONObject alarm = data.getJSONObject("alarm");
 			JSONArray triggers = alarm.getJSONArray("triggers");
+			byte[] thumbnail = Thumbnails.decode(alarm.optString("thumbnail", null));
 			String UUID_1 = Application.UUID_1;
 			String UUID_2 = Application.UUID_2;
 			String eventLocalLink = alarm.has("eventLocalLink") ? alarm.getString("eventLocalLink") : null;
@@ -118,30 +120,31 @@ public class WebhookController
 				String macAddress = getMacAdrress(device);
 
 				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
-				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, (!useRemote ? eventLocalLink : eventPath), useRemote);
+				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, (!useRemote ? eventLocalLink : eventPath), useRemote, thumbnail != null);
 
-				postToDiscord(embed);
+				postToDiscord(embed, thumbnail);
 			}
 		}
 
 		return ResponseEntity.ok("Webhook received successfully");
 	}
 
-	private void postToDiscord(Embed embed)
+	private void postToDiscord(Embed embed, byte[] thumbnail)
 	{
 		Message message = new Message()
 			.setUsername("Unifi Protect")
 			.setAvatarUrl("https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 
-		sendWebhook(Application.DISCORD_WEBHOOK, message, embed);
+		sendWebhook(Application.DISCORD_WEBHOOK, message, embed, thumbnail);
 	}
 
-	public void sendWebhook(String url, Message message, Embed embed)
+	public void sendWebhook(String url, Message message, Embed embed, byte[] thumbnail)
 	{
 		new WebhookManager()
 			.setMessage(message)
 			.setChannelUrl(url)
 			.setEmbeds(new Embed[]{embed})
+			.setImage(thumbnail)
 			.setListener(new WebhookClient.Callback()
 			{
 				@Override
@@ -159,9 +162,13 @@ public class WebhookController
 			.exec();
 	}
 
-	private Embed createDiscordEmbed(String trigger, String deviceName, String timestamp, String eventLink, boolean remote) throws JSONException
+	private Embed createDiscordEmbed(String trigger, String deviceName, String timestamp, String eventLink, boolean remote, boolean hasThumbnail) throws JSONException
 	{
 		Embed embed = new Embed();
+		if (hasThumbnail)
+		{
+			embed.setImage(new Image("attachment://" + Thumbnails.FILENAME));
+		}
 		// I am not a fan of the repeated author within an embed
 //		Author author = new Author("Unifi Protect",  "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 //		embed.setAuthor(author);

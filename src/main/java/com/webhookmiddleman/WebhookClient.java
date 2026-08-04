@@ -1,6 +1,7 @@
 package com.webhookmiddleman;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -36,6 +37,23 @@ public class WebhookClient
 	 */
 	public void send(String webhookUrl, JSONObject message)
 	{
+		send(webhookUrl, message, null);
+	}
+
+	/**
+	 * Sends a message to a webhook URL, optionally attaching an image.
+	 *
+	 * When {@code image} is non-empty the request is sent as
+	 * {@code multipart/form-data} with the embed JSON in the {@code payload_json}
+	 * part and the image in {@code files[0]}, so Discord can render it via an
+	 * {@code attachment://} embed reference. Otherwise a plain JSON POST is used.
+	 *
+	 * @param webhookUrl The URL of the webhook to send the message to.
+	 * @param message    The JSON message to be sent.
+	 * @param image      Raw image bytes to attach, or null for a JSON-only send.
+	 */
+	public void send(String webhookUrl, JSONObject message, byte[] image)
+	{
 		try
 		{
 			// Create a URI object from the provided webhook URL
@@ -43,17 +61,30 @@ public class WebhookClient
 
 			// Open a connection to the webhook URL
 			HttpsURLConnection connection = (HttpsURLConnection) uri.toURL().openConnection();
-			connection.setRequestProperty("Content-Type", "application/json");
 			String userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36";
 			connection.setRequestProperty("User-Agent", userAgent);
 
 			// Enable output for sending POST data
 			connection.setDoOutput(true);
 
-			// Write the JSON message to the connection's output stream
-			try (OutputStream stream = connection.getOutputStream())
+			boolean multipart = image != null && image.length > 0;
+			if (multipart)
 			{
-				stream.write(message.toString().getBytes(StandardCharsets.UTF_8));
+				String boundary = "unifiwebhook" + Long.toHexString(System.nanoTime());
+				connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+				byte[] body = buildMultipartBody(message, image, Thumbnails.FILENAME, boundary);
+				try (OutputStream stream = connection.getOutputStream())
+				{
+					stream.write(body);
+				}
+			}
+			else
+			{
+				connection.setRequestProperty("Content-Type", "application/json");
+				try (OutputStream stream = connection.getOutputStream())
+				{
+					stream.write(message.toString().getBytes(StandardCharsets.UTF_8));
+				}
 			}
 
 			// Get the HTTP response code
@@ -75,6 +106,39 @@ public class WebhookClient
 			logger.error("I/O Error: " + e.getMessage());
 			callback.onFailure(-1, e.getMessage());
 		}
+	}
+
+	/**
+	 * Builds a Discord {@code multipart/form-data} body: the embed JSON in the
+	 * {@code payload_json} field and the image in {@code files[0]}. The image is
+	 * referenced from the embed as {@code attachment://<filename>}.
+	 *
+	 * @param payloadJson the message/embed JSON.
+	 * @param image       the raw image bytes.
+	 * @param filename    the attachment filename (must match the embed's attachment:// url).
+	 * @param boundary    the multipart boundary.
+	 * @return the encoded request body.
+	 */
+	static byte[] buildMultipartBody(JSONObject payloadJson, byte[] image, String filename, String boundary)
+		throws IOException
+	{
+		final String CRLF = "\r\n";
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+		StringBuilder head = new StringBuilder();
+		head.append("--").append(boundary).append(CRLF);
+		head.append("Content-Disposition: form-data; name=\"payload_json\"").append(CRLF);
+		head.append("Content-Type: application/json").append(CRLF).append(CRLF);
+		head.append(payloadJson.toString()).append(CRLF);
+		head.append("--").append(boundary).append(CRLF);
+		head.append("Content-Disposition: form-data; name=\"files[0]\"; filename=\"")
+			.append(filename).append("\"").append(CRLF);
+		head.append("Content-Type: image/jpeg").append(CRLF).append(CRLF);
+
+		out.write(head.toString().getBytes(StandardCharsets.UTF_8));
+		out.write(image);
+		out.write((CRLF + "--" + boundary + "--" + CRLF).getBytes(StandardCharsets.UTF_8));
+		return out.toByteArray();
 	}
 
 	/**

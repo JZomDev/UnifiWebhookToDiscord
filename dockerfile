@@ -10,7 +10,9 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # package stage
-FROM openjdk:17
+FROM eclipse-temurin:17-jre
+
+LABEL org.opencontainers.image.source="https://github.com/kbpersonal/UnifiWebhookToDiscord"
 
 RUN mkdir -p /srv
 WORKDIR /srv
