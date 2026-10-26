@@ -3,6 +3,7 @@ package com.webhookmiddleman;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
@@ -16,6 +17,10 @@ import org.json.JSONObject;
 public class WebhookClient
 {
 	private static final Logger logger = LogManager.getLogger(WebhookClient.class);
+
+	/** Connect and read timeouts, so a hung Discord request cannot block a thread (or the Settings test button) forever. */
+	static final int CONNECT_TIMEOUT_MS = 10_000;
+	static final int READ_TIMEOUT_MS = 15_000;
 
 	private final Callback callback;
 
@@ -61,6 +66,8 @@ public class WebhookClient
 
 			// Open a connection to the webhook URL
 			HttpsURLConnection connection = (HttpsURLConnection) uri.toURL().openConnection();
+			connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+			connection.setReadTimeout(READ_TIMEOUT_MS);
 			String userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36";
 			connection.setRequestProperty("User-Agent", userAgent);
 
@@ -172,8 +179,15 @@ public class WebhookClient
 	 */
 	private void handleErrorResponse(HttpsURLConnection connection, int responseCode) throws IOException
 	{
-		try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(
-			responseCode == HttpsURLConnection.HTTP_NOT_FOUND ? connection.getErrorStream() : connection.getInputStream())))
+		// Error bodies come from the error stream; getInputStream() would throw for 4xx/5xx
+		// (with the webhook URL, including its token, in the exception message).
+		InputStream body = responseCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
+		if (body == null)
+		{
+			callback.onFailure(responseCode, "");
+			return;
+		}
+		try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8)))
 		{
 
 			String errorInputLine;
@@ -184,7 +198,7 @@ public class WebhookClient
 				errorResponse.append(errorInputLine);
 			}
 
-			callback.onFailure(-1, errorResponse.toString());
+			callback.onFailure(responseCode, errorResponse.toString());
 		}
 	}
 

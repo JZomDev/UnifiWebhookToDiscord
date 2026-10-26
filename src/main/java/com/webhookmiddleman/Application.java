@@ -1,114 +1,87 @@
 package com.webhookmiddleman;
 
-import java.util.Collections;
-import java.util.HashMap;
+import com.webhookmiddleman.settings.EnvImporter;
+import com.webhookmiddleman.settings.MountInfo;
+import com.webhookmiddleman.settings.SettingsStore;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
 public class Application
 {
-
 	private static final Logger logger = LogManager.getLogger(Application.class);
 
-	private static final String MAC_ADDRESS_REGEX = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$";
-	private static final Pattern MAC_ADDRESS_PATTERN = Pattern.compile(MAC_ADDRESS_REGEX);
-
-
-	public static String DISCORD_WEBHOOK = "";
-	public static String PORT = "8080";
-	public static HashMap<String, String> macToDeviceName = new HashMap<>();
-
-	public static String UUID_1 = "";
-	public static String UUID_2 = "";
-
-	static
+	public static void main(String[] args)
 	{
-		Map<String, String> environmentVariables = System.getenv();
-
-		for (String envName : environmentVariables.keySet())
-		{
-			if (envName.equals("webhook"))
-			{
-				DISCORD_WEBHOOK = environmentVariables.get(envName);
-				logger.info("Discord webhook: '{}'", DISCORD_WEBHOOK);
-			}
-			if (envName.equals("port"))
-			{
-				PORT = environmentVariables.get(envName);
-				logger.info("Port: '{}'", PORT);
-			}
-			if (envName.equals("UUID_1"))
-			{
-				UUID_1 = environmentVariables.get(envName);
-				logger.info("UUID_1 (Console UUID for remote viewing): '{}'", UUID_1);
-			}
-			if (envName.equals("UUID_2"))
-			{
-				UUID_2 = environmentVariables.get(envName);
-				logger.info("UUID_2 (Console UUID (other value) for remote viewing): '{}'", UUID_2);
-			}
-
-			if (MAC_ADDRESS_PATTERN.matcher(envName).matches())
-			{
-				macToDeviceName.put(envName, environmentVariables.get(envName));
-				logger.info("MAC ADDRESS Supplied: '{}'", envName);
-			}
-		}
+		SpringApplication app = new SpringApplication(Application.class);
+		app.setDefaultProperties(Map.of("server.port", EnvImporter.webUiPort(System.getenv())));
+		app.run(args);
 	}
 
-	// args for local development, not ran from dockerfile
-	public static void main(String[] args) {
-		if (args.length != 0)
-		{
-			DISCORD_WEBHOOK = args[0];
-			PORT = args[1];
-		}
-		if (validateWebhook())
-		{
-			SpringApplication app = new SpringApplication(Application.class);
+	/**
+	 * Settings file {@code settings.json} in {@code config.dir} (env {@code config_dir}, default {@code /config}).
+	 * With {@code config.require-mount} (env {@code config_require_mount}, set in the Docker image) the
+	 * settings only count as persistent when the config dir is a mount point in {@code config.mountinfo}.
+	 */
+	@Bean
+	SettingsStore settingsStore(@Value("${config.dir:/config}") String configDir,
+		@Value("${config.require-mount:false}") boolean requireMount,
+		@Value("${config.mountinfo:/proc/self/mountinfo}") String mountinfo)
+	{
+		return new SettingsStore(Path.of(configDir, "settings.json"),
+			requireMount ? MountInfo.checker(Path.of(mountinfo)) : null);
+	}
 
-			// this should only run if in local development
-			if (!PORT.equalsIgnoreCase("8080"))
+	/** Runs the one-time env import; the result lists the legacy env vars currently set, for the UI banner. */
+	@Bean
+	List<String> envVars(SettingsStore store)
+	{
+		return List.copyOf(EnvImporter.importFrom(System.getenv(), store));
+	}
+
+	@Bean
+	WebhookProcessor webhookProcessor(SettingsStore store)
+	{
+		return new WebhookProcessor(store, WebhookProcessor.discordSender());
+	}
+
+	@Bean(destroyMethod = "stop")
+	WebhookListener webhookListener(WebhookProcessor processor)
+	{
+		return new WebhookListener(processor);
+	}
+
+	/** Starts the webhook listener once the app is up (after the env import, which {@code envVars} forces). */
+	@Bean
+	ApplicationListener<ApplicationReadyEvent> webhookListenerStarter(WebhookListener listener, SettingsStore store,
+		@Qualifier("envVars") List<String> envVars, @Value("${listener.autostart:true}") boolean autostart)
+	{
+		return event ->
+		{
+			if (!autostart)
 			{
-				app.setDefaultProperties(Collections
-					.singletonMap("server.port", PORT));
+				return;
 			}
+			int port = store.snapshot().webhookPort;
 			try
 			{
-				app.run(args);
-				logger.info("Started Unifi Webhook Discord Server");
+				listener.start(port);
 			}
-			catch (Exception e)
+			catch (IOException e)
 			{
-				logger.error(e);
+				logger.error("Could not start webhook listener on port {}: {}. Change the port in Settings.", port, e.toString());
 			}
-		}
-	}
-
-	private static boolean validateWebhook()
-	{
-		if (DISCORD_WEBHOOK.equalsIgnoreCase(""))
-		{
-			logger.error("Please supply a Discord webhook");
-			return false;
-		}
-		else
-		{
-			boolean isValidUrl = DISCORD_WEBHOOK.matches("https://discord\\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\\-]+");
-
-			// If the provided URL is valid, update the channel's webhook URL.
-			if (isValidUrl)
-			{
-				return true;
-			}
-
-			logger.error("Please supply a valid Discord webhook");
-			return false;
-		}
+		};
 	}
 }
