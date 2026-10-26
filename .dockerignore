@@ -2,3 +2,9 @@
 gradle/
 gradlew
 gradle.bat
+
+.git
+.superpowers
+.claude
+docs
+target

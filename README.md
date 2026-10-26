@@ -6,7 +6,44 @@ Links:
 
 This is a tiny webhook listener that listens for Unifi's webhooks sent to the docker container's IP:PORT and formats the message to a Discord webhook.
 
-You can add devices by using a device's mac address as a variable and the device name as the variable name.
+## Running the container
+
+| Setting | Value |
+| --- | --- |
+| Web UI port | `45462` (override with env `webui_port`) |
+| Webhook listener port | `8080` by default (changeable in Settings) |
+| Config volume | `/config` (settings, cameras and the password hash) |
+
+On Unraid, add a path mapping from container path `/config` to a host path such as `/mnt/user/appdata/unifi-webhook-to-discord`, plus port mappings for `45462` (web UI) and `8080` (webhook listener). The container runs as `99:100`, so the host path must be writable by that user. If `/config` is not writable the app still starts, but the UI shows a warning that settings are not persistent and will be lost on restart.
+
+```
+docker run -d -p 45462:45462 -p 8080:8080 -v /path/to/config:/config redzguilt/unifi-webhook-to-discord
+```
+
+## Web UI
+
+Open `http://<host>:45462`. The first login is `admin` / `admin`; you are forced to choose a new password straight away.
+
+- **Settings**: the Discord webhook URL, the webhook listen port, the Unifi console UUIDs (optional), and a button that sends a test message to Discord. The listen port must match the container port you map (for example listen port `8080` with a `8080` mapping).
+- **Cameras**: add a camera by its MAC address and a display name. Unknown MAC addresses appear in Discord as "unknown device".
+- **Guide**: renders `guides/setup.md`, the setup walkthrough.
+
+## Environment variables (optional, import only)
+
+Environment variables are no longer required. Each of these is imported once into the UI settings the first time it is seen (it never overwrites a value you already set in the UI):
+
+- `webhook`: Discord webhook URL
+- `port`: webhook listener port
+- `UUID_1`, `UUID_2`: Unifi console UUIDs
+- MAC address variables (for example `AA:BB:CC:11:22:33=Front`): imported as cameras, with the value as the name
+
+Two further variables configure the app itself: `webui_port` (web UI port, default `45462`) and `config_dir` (settings directory, default `/config`).
+
+While any of the import variables are still set, the UI shows a banner listing them. Dismiss it with the x for the current page, or turn it off permanently with the "Env variable reminder" checkbox on the Settings page. You can remove the variables from your container template once they are imported.
+
+## Original variable-based setup
+
+You can add devices by using a device's mac address as a variable and the device name as the variable value.
 
 Example of a config:
 

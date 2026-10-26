@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy the pom.xml and the project files to the container
 COPY pom.xml .
 COPY src ./src
+COPY guides ./guides
 
 RUN mvn clean package -DskipTests
 
@@ -17,6 +18,10 @@ LABEL org.opencontainers.image.source="https://github.com/JZomDev/UnifiWebhookTo
 RUN mkdir -p /srv
 WORKDIR /srv
 COPY --from=builder /app/target/Unifi-Webhook-To-Discord-1.0.jar /srv
+
+RUN mkdir -p /config && chown 99:100 /config
+VOLUME /config
+EXPOSE 45462 8080
 
 USER 99:100
 CMD ["java", "-jar", "Unifi-Webhook-To-Discord-1.0.jar"]
