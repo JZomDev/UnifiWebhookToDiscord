@@ -2,7 +2,6 @@
 
 Links:
 [GitHub](https://github.com/JZomDev/UnifiWebhookToDiscord)
-
 [Docker Hub](https://hub.docker.com/repository/docker/redzguilt/unifi-webhook-to-discord/general)
 
 Populate the WebUi:
