@@ -24,6 +24,10 @@ public class WebhookProcessor
 {
 	private static final Logger logger = LogManager.getLogger(WebhookProcessor.class);
 
+	/** Sender name and icon shown on every Discord message from this app, including the Settings test message. */
+	public static final String SENDER_NAME = "Unifi Protect";
+	public static final String SENDER_AVATAR_URL = "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png";
+
 	/** Delivers a message to Discord. */
 	public interface WebhookSender
 	{
@@ -169,8 +173,8 @@ public class WebhookProcessor
 	private void postToDiscord(String webhook, Embed embed, byte[] thumbnail)
 	{
 		Message message = new Message()
-			.setUsername("Unifi Protect")
-			.setAvatarUrl("https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
+			.setUsername(SENDER_NAME)
+			.setAvatarUrl(SENDER_AVATAR_URL);
 
 		sender.send(webhook, message, embed, thumbnail);
 	}
@@ -207,7 +211,7 @@ public class WebhookProcessor
 			embed.setImage(new Image("attachment://" + Thumbnails.FILENAME));
 		}
 		embed.setTitle("Alert Triggered :camera_with_flash:");
-		Footer footer = new Footer("Unifi Protect", "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
+		Footer footer = new Footer(SENDER_NAME, SENDER_AVATAR_URL);
 		embed.setFooter(footer);
 		embed.setColor(16711680);
 		Field triggerField = new Field("Trigger", trigger, true);

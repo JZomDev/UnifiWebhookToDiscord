@@ -2,6 +2,7 @@ package com.webhookmiddleman.web;
 
 import com.webhookmiddleman.WebhookClient;
 import com.webhookmiddleman.WebhookManager;
+import com.webhookmiddleman.WebhookProcessor;
 import com.webhookmiddleman.models.Message;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +21,10 @@ public class DiscordTestMessageSender implements TestMessageSender
 		{
 			new WebhookManager()
 				.setChannelUrl(webhookUrl)
-				.setMessage(new Message().setUsername("Unifi Protect").setContent(CONTENT))
+				.setMessage(new Message()
+					.setUsername(WebhookProcessor.SENDER_NAME)
+					.setAvatarUrl(WebhookProcessor.SENDER_AVATAR_URL)
+					.setContent(CONTENT))
 				.setListener(new WebhookClient.Callback()
 				{
 					@Override
