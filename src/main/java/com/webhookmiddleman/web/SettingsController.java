@@ -81,12 +81,14 @@ public class SettingsController
 			return invalid(response, model, "Port " + port + " is used by the web UI. Choose a different port for the webhook listener.");
 		}
 
+		String bindError = null;
 		synchronized (this)
 		{
-			// Bind first: if the new port is unavailable, nothing is saved and the old port keeps running.
-			// Also retries when the listener is not running (e.g. its port was busy at startup).
 			if (port != listener.port())
 			{
+				// The listener is down on the saved port (e.g. it was busy at startup) and the port is unchanged:
+				// save the other fields regardless and just retry the bind.
+				boolean retryOnly = listener.port() == -1 && port == store.snapshot().webhookPort;
 				try
 				{
 					listener.rebind(port);
@@ -94,8 +96,13 @@ public class SettingsController
 				catch (IOException e)
 				{
 					log.warn("Could not bind webhook listener to port {}: {}", port, e.toString());
-					return invalid(response, model, "Could not listen on port " + port + " (" + e.getMessage()
-						+ "). It may be in use. Settings were not saved.");
+					String reason = "Could not listen on port " + port + " (" + WebhookListener.describe(e) + "). It may be in use.";
+					if (!retryOnly)
+					{
+						// A new port that cannot be bound: nothing is saved and the old port keeps running.
+						return invalid(response, model, reason + " Settings were not saved.");
+					}
+					bindError = reason + " The other settings were saved; the webhook listener is still not running.";
 				}
 			}
 			store.update(s ->
@@ -106,6 +113,10 @@ public class SettingsController
 				s.uuid2 = form.uuid2();
 				s.showEnvReminder = form.showEnvReminder();
 			});
+		}
+		if (bindError != null)
+		{
+			redirect.addFlashAttribute("bindError", bindError);
 		}
 		redirect.addFlashAttribute("saved", true);
 		return "redirect:/settings";

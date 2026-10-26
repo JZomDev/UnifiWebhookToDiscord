@@ -1,5 +1,6 @@
 package com.webhookmiddleman.web;
 
+import com.webhookmiddleman.WebhookListener;
 import com.webhookmiddleman.settings.SettingsStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -9,17 +10,19 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
-/** Adds {@code csrf}, {@code envVars} (banner, logged-in only), {@code notPersistent}, {@code configDir} and {@code settingsLoadNotice} to every view. */
+/** Adds {@code csrf}, {@code envVars} (banner, logged-in only), {@code notPersistent}, {@code configDir}, {@code settingsLoadNotice} and {@code listenerDown} (logged-in only) to every view. */
 @ControllerAdvice
 public class UiAdvice
 {
 	private final SettingsStore store;
 	private final List<String> envVars;
+	private final WebhookListener listener;
 
-	public UiAdvice(SettingsStore store, @Qualifier("envVars") List<String> envVars)
+	public UiAdvice(SettingsStore store, @Qualifier("envVars") List<String> envVars, WebhookListener listener)
 	{
 		this.store = store;
 		this.envVars = envVars;
+		this.listener = listener;
 	}
 
 	@ModelAttribute
@@ -32,6 +35,12 @@ public class UiAdvice
 		if (authed && store.snapshot().showEnvReminder && !envVars.isEmpty())
 		{
 			model.addAttribute("envVars", envVars);
+		}
+		String down = listener.downReason();
+		if (authed && down != null)
+		{
+			model.addAttribute("listenerDown", "Webhook listener is not running on port " + listener.failedPort() + ": " + down
+				+ ". Unifi alarms are not being received; free that port or choose another one in Settings.");
 		}
 		model.addAttribute("notPersistent", !store.isPersistent());
 		model.addAttribute("configDir", store.directory().toString());

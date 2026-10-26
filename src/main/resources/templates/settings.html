@@ -6,6 +6,7 @@
 	<th:block th:replace="~{layout :: header('settings')}"></th:block>
 	<div class="body">
 		<p class="ok" th:if="${saved}">Settings saved.</p>
+		<p class="err" th:if="${bindError}" th:text="${bindError}">Could not listen on port 8080.</p>
 		<p class="err" th:if="${error}" th:text="${error}">Error</p>
 		<p class="err" th:if="${webhookMissing}">No Discord webhook is set, so camera alerts will not be forwarded. Add one below.</p>
 		<form method="post" th:action="@{/settings}">

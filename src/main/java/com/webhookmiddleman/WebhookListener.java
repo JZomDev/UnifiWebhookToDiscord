@@ -25,6 +25,8 @@ public class WebhookListener
 	private final WebhookProcessor processor;
 	private HttpServer server;
 	private ExecutorService executor;
+	private int failedPort = -1;
+	private String downReason;
 
 	public WebhookListener(WebhookProcessor processor)
 	{
@@ -62,6 +64,27 @@ public class WebhookListener
 			server = null;
 			executor = null;
 		}
+		failedPort = -1;
+		downReason = null;
+	}
+
+	/** The port of the last failed bind while no listener was running, or -1. */
+	public synchronized int failedPort()
+	{
+		return failedPort;
+	}
+
+	/** Why the listener is not running after a failed start, or null if it is running or never tried. */
+	public synchronized String downReason()
+	{
+		return server == null ? downReason : null;
+	}
+
+	/** The exception's message, or its type when it has none. */
+	public static String describe(Exception e)
+	{
+		String m = e.getMessage();
+		return m == null || m.isBlank() ? e.getClass().getSimpleName() : m;
 	}
 
 	public synchronized int port()
@@ -71,13 +94,29 @@ public class WebhookListener
 
 	private void open(int port) throws IOException
 	{
-		HttpServer s = HttpServer.create(new InetSocketAddress(port), 0);
+		HttpServer s;
+		try
+		{
+			s = HttpServer.create(new InetSocketAddress(port), 0);
+		}
+		catch (IOException | RuntimeException e)
+		{
+			if (server == null)
+			{
+				// Nothing is listening: remember why, for the UI.
+				failedPort = port;
+				downReason = describe(e);
+			}
+			throw e;
+		}
 		ExecutorService e = Executors.newCachedThreadPool();
 		s.createContext("/", this::handle);
 		s.setExecutor(e);
 		s.start();
 		server = s;
 		executor = e;
+		failedPort = -1;
+		downReason = null;
 		logger.info("Webhook listener started on port {}", s.getAddress().getPort());
 	}
 

@@ -44,6 +44,7 @@
 
 <th:block th:fragment="notices">
 	<div class="alert" th:if="${settingsLoadNotice}" th:text="${settingsLoadNotice}">The settings file could not be read and was set aside.</div>
+	<div class="alert" th:if="${listenerDown}" th:text="${listenerDown}">Webhook listener is not running on port 8080: Address already in use.</div>
 	<div class="alert" th:if="${notPersistent}">
 		Settings are not stored persistently: the config directory (<code th:text="${configDir}">/config</code>) is not a mapped volume or is not writable.
 		Your settings, cameras and password will be lost when the container is updated or recreated.

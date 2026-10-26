@@ -2,6 +2,7 @@ package com.webhookmiddleman.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -232,6 +234,73 @@ class SettingsControllerTest
 		assertEquals("", s.uuid2);
 		assertTrue(s.showEnvReminder);
 		assertEquals(listenPort, listener.port());
+	}
+
+	/** Leaves the listener down after failing to start on {@code port}, as when the saved port was busy at boot. */
+	void failStart(int port)
+	{
+		listener.stop();
+		assertThrows(IOException.class, () -> listener.start(port));
+		store.update(s -> s.webhookPort = port);
+	}
+
+	@Test
+	void listenerDownShowsNoticeButSavingOtherFieldsWorks() throws Exception
+	{
+		try (ServerSocket busy = new ServerSocket(0))
+		{
+			int port = busy.getLocalPort();
+			failStart(port);
+			mvc.perform(get("/settings").session(login.session()))
+				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port + ":")));
+			mvc.perform(get("/").session(login.session()))
+				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port)));
+
+			save(HOOK, String.valueOf(port), "u1", "u2", false).andExpect(redirectedUrl("/settings"))
+				.andExpect(flash().attribute("saved", true))
+				.andExpect(flash().attribute("bindError", Matchers.containsString("Could not listen on port " + port)));
+			Settings s = store.snapshot();
+			assertEquals(HOOK, s.webhook);
+			assertEquals("u1", s.uuid1);
+			assertEquals("u2", s.uuid2);
+			assertEquals(port, s.webhookPort);
+			assertFalse(s.showEnvReminder);
+			assertEquals(-1, listener.port());
+		}
+		// Port is free now: saving again starts the listener and the notice goes away.
+		int port = store.snapshot().webhookPort;
+		save(HOOK, String.valueOf(port), "u1", "u2", false).andExpect(redirectedUrl("/settings"))
+			.andExpect(flash().attributeCount(1));
+		assertEquals(port, listener.port());
+		mvc.perform(get("/settings").session(login.session()))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("is not running"))));
+	}
+
+	@Test
+	void listenerDownChangingToBusyPortIsRefused() throws Exception
+	{
+		try (ServerSocket down = new ServerSocket(0); ServerSocket busy = new ServerSocket(0))
+		{
+			failStart(down.getLocalPort());
+			int port = busy.getLocalPort();
+			save(HOOK, String.valueOf(port), "u1", "", true).andExpect(status().isBadRequest())
+				.andExpect(content().string(Matchers.containsString("Could not listen on port " + port)));
+			assertEquals(down.getLocalPort(), store.snapshot().webhookPort);
+			assertEquals("", store.snapshot().webhook);
+		}
+	}
+
+	@Test
+	void listenerDownChangingToFreePortStartsIt() throws Exception
+	{
+		try (ServerSocket down = new ServerSocket(0))
+		{
+			failStart(down.getLocalPort());
+		}
+		int newPort = freePort();
+		save(HOOK, String.valueOf(newPort), "", "", true).andExpect(redirectedUrl("/settings"));
+		assertEquals(newPort, listener.port());
+		assertEquals(newPort, store.snapshot().webhookPort);
 	}
 
 	@Test

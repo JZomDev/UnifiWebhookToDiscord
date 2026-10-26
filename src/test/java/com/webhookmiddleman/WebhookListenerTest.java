@@ -1,6 +1,8 @@
 package com.webhookmiddleman;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,6 +55,36 @@ class WebhookListenerTest
 		HttpRequest req = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
 			.POST(HttpRequest.BodyPublishers.ofString(body)).build();
 		return client.send(req, HttpResponse.BodyHandlers.ofString()).statusCode();
+	}
+
+	@Test
+	void failedStartIsRecordedUntilABindSucceeds() throws Exception
+	{
+		assertNull(listener.downReason());
+		try (ServerSocket busy = new ServerSocket(0))
+		{
+			int port = busy.getLocalPort();
+			assertThrows(IOException.class, () -> listener.start(port));
+			assertEquals(-1, listener.port());
+			assertEquals(port, listener.failedPort());
+			assertNotNull(listener.downReason());
+			assertThrows(IOException.class, () -> listener.rebind(port));
+			assertNotNull(listener.downReason());
+		}
+		listener.rebind(0);
+		assertNull(listener.downReason());
+		assertEquals(-1, listener.failedPort());
+	}
+
+	@Test
+	void failedRebindWhileRunningIsNotADownState() throws Exception
+	{
+		listener.start(0);
+		try (ServerSocket busy = new ServerSocket(0))
+		{
+			assertThrows(IOException.class, () -> listener.rebind(busy.getLocalPort()));
+		}
+		assertNull(listener.downReason());
 	}
 
 	@Test
