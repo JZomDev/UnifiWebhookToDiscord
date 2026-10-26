@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Cameras')}"></head>
+<body>
+<div class="page">
+	<th:block th:replace="~{layout :: header('cameras')}"></th:block>
+	<div class="body">
+		<p class="err" th:if="${editError}" th:text="${editError}">Error</p>
+		<p class="mut" th:if="${#maps.isEmpty(cameras)}">No cameras yet. Add one below.</p>
+		<table th:unless="${#maps.isEmpty(cameras)}">
+			<tr><th>MAC address</th><th>Name</th><th></th></tr>
+			<tr th:each="cam : ${cameras}">
+				<td class="mac" th:text="${cam.key}">AA:BB:CC:11:22:33</td>
+				<td>
+					<span th:text="${cam.value}">Front Door</span>
+					<form class="inline" method="post" style="display:none" th:action="@{/cameras/{mac}(mac=${cam.key})}">
+						<input type="hidden" name="_csrf" th:value="${csrf}">
+						<input name="name" maxlength="100" required th:value="${cam.value}">
+						<button type="submit" class="p">Save</button>
+					</form>
+				</td>
+				<td class="act">
+					<button type="button" class="link" onclick="var r=this.closest('tr');r.querySelector('span').style.display='none';r.querySelector('form').style.display='inline';this.style.display='none';r.querySelector('input[name=name]').focus()">edit</button>
+					<form class="inline" method="post" th:action="@{/cameras/{mac}/delete(mac=${cam.key})}">
+						<input type="hidden" name="_csrf" th:value="${csrf}">
+						<button type="submit" class="link">delete</button>
+					</form>
+				</td>
+			</tr>
+		</table>
+		<form class="add" method="post" th:action="@{/cameras}">
+			<input type="hidden" name="_csrf" th:value="${csrf}">
+			<input name="mac" placeholder="MAC address" required th:value="${mac}">
+			<input name="name" placeholder="Camera name" maxlength="200" required th:value="${name}">
+			<button type="submit" class="p">Add</button>
+		</form>
+		<p class="err" th:if="${addError}" th:text="${addError}">Error</p>
+	</div>
+</div>
+</body>
+</html>
