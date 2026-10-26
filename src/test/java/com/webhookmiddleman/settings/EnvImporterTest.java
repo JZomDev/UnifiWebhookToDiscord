@@ -36,21 +36,22 @@ class EnvImporterTest
 	}
 
 	@Test
-	void importsWebhookPortUuidsAndCameras()
+	void importsWebhookUuidsAndCamerasButNotPort()
 	{
 		SettingsStore store = newStore();
 		List<String> vars = EnvImporter.importFrom(env("PATH", "/bin", "BB:BB:BB:BB:BB:BB", "Garage", "webhook", HOOK,
 				"port", "9090", "UUID_1", "u1", "UUID_2", "u2", "AA:AA:AA:AA:AA:AA", "Front", "webui_port", "1234"), store);
 		Settings s = store.snapshot();
 		assertEquals(HOOK, s.webhook);
-		assertEquals(9090, s.webhookPort);
 		assertEquals("u1", s.uuid1);
 		assertEquals("u2", s.uuid2);
 		assertEquals("Front", s.cameras.get("AA:AA:AA:AA:AA:AA"));
 		assertEquals("Garage", s.cameras.get("BB:BB:BB:BB:BB:BB"));
-		assertTrue(s.imported.containsAll(List.of("webhook", "port", "UUID_1", "UUID_2",
+		assertTrue(s.imported.containsAll(List.of("webhook", "UUID_1", "UUID_2",
 				"camera:AA:AA:AA:AA:AA:AA", "camera:BB:BB:BB:BB:BB:BB")));
-		assertEquals(List.of("webhook", "port", "UUID_1", "UUID_2", "AA:AA:AA:AA:AA:AA", "BB:BB:BB:BB:BB:BB"), vars);
+		assertFalse(s.imported.contains("port"));
+		// port is a real setting now (the listen port), so it is not listed as removable.
+		assertEquals(List.of("webhook", "UUID_1", "UUID_2", "AA:AA:AA:AA:AA:AA", "BB:BB:BB:BB:BB:BB"), vars);
 	}
 
 	@Test
@@ -121,13 +122,44 @@ class EnvImporterTest
 	}
 
 	@Test
-	void invalidPortIgnored()
+	void portAloneIsNotImportedOrListed() throws Exception
 	{
 		SettingsStore store = newStore();
-		EnvImporter.importFrom(env("port", "abc"), store);
-		EnvImporter.importFrom(env("port", "70000"), store);
-		assertEquals(8080, store.snapshot().webhookPort);
+		assertEquals(List.of(), EnvImporter.importFrom(env("port", "9090"), store));
 		assertFalse(store.snapshot().imported.contains("port"));
+		assertFalse(Files.exists(dir.resolve("settings.json")));
+	}
+
+	@Test
+	void listenPortDefaultsTo8080()
+	{
+		assertEquals(8080, EnvImporter.listenPort(env(), 45462));
+		assertEquals(8080, EnvImporter.listenPort(env("PATH", "/bin"), 45462));
+	}
+
+	@Test
+	void listenPortFromEnv()
+	{
+		assertEquals(9090, EnvImporter.listenPort(env("port", "9090"), 45462));
+		assertEquals(9090, EnvImporter.listenPort(env("port", " 9090 "), 45462));
+		assertEquals(1, EnvImporter.listenPort(env("port", "1"), 45462));
+		assertEquals(65535, EnvImporter.listenPort(env("port", "65535"), 45462));
+	}
+
+	@Test
+	void invalidListenPortFallsBackTo8080()
+	{
+		for (String bad : new String[] { "", "abc", "0", "-1", "65536", "70000", "80.5" })
+		{
+			assertEquals(8080, EnvImporter.listenPort(env("port", bad), 45462), bad);
+		}
+	}
+
+	@Test
+	void listenPortEqualToUiPortFallsBackTo8080()
+	{
+		assertEquals(8080, EnvImporter.listenPort(env("port", "45462"), 45462));
+		assertEquals(8080, EnvImporter.listenPort(env("port", "7000"), 7000));
 	}
 
 	@Test

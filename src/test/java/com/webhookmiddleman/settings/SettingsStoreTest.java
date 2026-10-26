@@ -59,7 +59,6 @@ class SettingsStoreTest
 		SettingsStore store = new SettingsStore(dir.resolve("none.json"));
 		Settings s = store.snapshot();
 		assertTrue(s.mustChangePassword);
-		assertEquals(8080, s.webhookPort);
 		assertTrue(s.showEnvReminder);
 		assertNull(s.passwordHash);
 		assertNull(store.cameraName("AA:BB:CC:11:22:33"));
@@ -73,7 +72,23 @@ class SettingsStoreTest
 		Files.writeString(file, "{not json");
 		SettingsStore store = new SettingsStore(file);
 		assertTrue(store.snapshot().mustChangePassword);
-		assertEquals(8080, store.snapshot().webhookPort);
+	}
+
+	@Test
+	void oldFileWithWebhookPortKeyLoadsAndDropsTheKey() throws Exception
+	{
+		Path file = dir.resolve("settings.json");
+		Files.writeString(file, "{\"webhook\":\"https://example.com/hook\",\"webhookPort\":9090,\"uuid1\":\"u1\","
+			+ "\"mustChangePassword\":false,\"imported\":[\"port\",\"webhook\"]}");
+		SettingsStore store = new SettingsStore(file);
+		assertNull(store.loadNotice());
+		Settings s = store.snapshot();
+		assertEquals("https://example.com/hook", s.webhook);
+		assertEquals("u1", s.uuid1);
+		assertFalse(s.mustChangePassword);
+		store.update(x -> x.uuid2 = "u2");
+		assertFalse(Files.readString(file).contains("webhookPort"));
+		assertEquals("u2", new SettingsStore(file).snapshot().uuid2);
 	}
 
 	@Test

@@ -15,8 +15,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Serves {@code POST /data} on its own port, independent of Spring, and can
- * move to another port at runtime.
+ * Serves {@code POST /data} on its own port, independent of Spring.
  */
 public class WebhookListener
 {
@@ -42,19 +41,6 @@ public class WebhookListener
 		open(port);
 	}
 
-	/** Binds the new port first; if that fails, throws and leaves the old port running. */
-	public synchronized void rebind(int port) throws IOException
-	{
-		HttpServer oldServer = server;
-		ExecutorService oldExecutor = executor;
-		open(port);
-		if (oldServer != null)
-		{
-			oldServer.stop(0);
-			oldExecutor.shutdown();
-		}
-	}
-
 	public synchronized void stop()
 	{
 		if (server != null)
@@ -68,7 +54,7 @@ public class WebhookListener
 		downReason = null;
 	}
 
-	/** The port of the last failed bind while no listener was running, or -1. */
+	/** The port of the last failed start, or -1. */
 	public synchronized int failedPort()
 	{
 		return failedPort;
@@ -101,12 +87,9 @@ public class WebhookListener
 		}
 		catch (IOException | RuntimeException e)
 		{
-			if (server == null)
-			{
-				// Nothing is listening: remember why, for the UI.
-				failedPort = port;
-				downReason = describe(e);
-			}
+			// Nothing is listening: remember why, for the UI.
+			failedPort = port;
+			downReason = describe(e);
 			throw e;
 		}
 		ExecutorService e = Executors.newCachedThreadPool();

@@ -6,16 +6,21 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * One-time import of legacy environment variables into {@link Settings}. A value
  * is imported only if it has not been imported before and the user has not
- * already set the target field.
+ * already set the target field. Also resolves the two ports, which come only
+ * from the environment: {@code webui_port} and {@code port} (the webhook listener).
  */
 public final class EnvImporter
 {
 	public static final int DEFAULT_WEB_UI_PORT = 45462;
+	public static final int DEFAULT_LISTEN_PORT = 8080;
+	private static final Logger log = LoggerFactory.getLogger(EnvImporter.class);
 	private static final Pattern WEBHOOK = Pattern.compile("https://discord\\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\\-]+");
-	private static final int DEFAULT_WEBHOOK_PORT = 8080;
 
 	private EnvImporter()
 	{
@@ -23,12 +28,13 @@ public final class EnvImporter
 
 	/**
 	 * Imports not-yet-imported values and returns the names of the legacy env vars
-	 * present in {@code env} (webhook, port, UUID_1, UUID_2, then MACs sorted).
+	 * present in {@code env} that can be removed once imported (webhook, UUID_1,
+	 * UUID_2, then MACs sorted). {@code port} is not one of them: it still sets the listen port.
 	 */
 	public static List<String> importFrom(Map<String, String> env, SettingsStore store)
 	{
 		List<String> present = new ArrayList<>();
-		for (String name : new String[] { "webhook", "port", "UUID_1", "UUID_2" })
+		for (String name : new String[] { "webhook", "UUID_1", "UUID_2" })
 		{
 			if (env.containsKey(name))
 			{
@@ -57,16 +63,6 @@ public final class EnvImporter
 				if (s.webhook.isEmpty())
 				{
 					s.webhook = webhook.trim();
-				}
-			}
-
-			String port = env.get("port");
-			Integer parsed = parsePort(port);
-			if (parsed != null && s.imported.add("port"))
-			{
-				if (s.webhookPort == DEFAULT_WEBHOOK_PORT)
-				{
-					s.webhookPort = parsed;
 				}
 			}
 
@@ -108,6 +104,31 @@ public final class EnvImporter
 	{
 		Integer p = parsePort(env.get("webui_port"));
 		return p == null ? DEFAULT_WEB_UI_PORT : p;
+	}
+
+	/**
+	 * The webhook listener port: env {@code port} (the port inside the container), or
+	 * {@value #DEFAULT_LISTEN_PORT} when it is unset, not a port number, or the web UI port.
+	 */
+	public static int listenPort(Map<String, String> env, int uiPort)
+	{
+		String raw = env.get("port");
+		if (raw == null)
+		{
+			return DEFAULT_LISTEN_PORT;
+		}
+		Integer p = parsePort(raw);
+		if (p == null)
+		{
+			log.warn("Environment variable port=\"{}\" is not a port number (1-65535); using {}", raw, DEFAULT_LISTEN_PORT);
+			return DEFAULT_LISTEN_PORT;
+		}
+		if (p == uiPort)
+		{
+			log.warn("Environment variable port={} is the web UI port; using {} for the webhook listener", p, DEFAULT_LISTEN_PORT);
+			return DEFAULT_LISTEN_PORT;
+		}
+		return p;
 	}
 
 	private static Integer parsePort(String raw)

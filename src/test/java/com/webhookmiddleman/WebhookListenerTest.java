@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.webhookmiddleman.settings.SettingsStore;
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -68,23 +67,10 @@ class WebhookListenerTest
 			assertEquals(-1, listener.port());
 			assertEquals(port, listener.failedPort());
 			assertNotNull(listener.downReason());
-			assertThrows(IOException.class, () -> listener.rebind(port));
-			assertNotNull(listener.downReason());
 		}
-		listener.rebind(0);
+		listener.start(0);
 		assertNull(listener.downReason());
 		assertEquals(-1, listener.failedPort());
-	}
-
-	@Test
-	void failedRebindWhileRunningIsNotADownState() throws Exception
-	{
-		listener.start(0);
-		try (ServerSocket busy = new ServerSocket(0))
-		{
-			assertThrows(IOException.class, () -> listener.rebind(busy.getLocalPort()));
-		}
-		assertNull(listener.downReason());
 	}
 
 	@Test
@@ -113,30 +99,5 @@ class WebhookListenerTest
 		listener.start(p);
 		assertEquals(400, post(p, "/data", "{not json"));
 		assertEquals(200, post(p, "/data", "{}"));
-	}
-
-	@Test
-	void rebindMovesPort() throws Exception
-	{
-		int p1 = freePort();
-		listener.start(p1);
-		int p2 = freePort();
-		listener.rebind(p2);
-		assertEquals(p2, listener.port());
-		assertEquals(200, post(p2, "/data", "{}"));
-		assertThrows(ConnectException.class, () -> post(p1, "/data", "{}"));
-	}
-
-	@Test
-	void rebindToBusyPortThrowsAndKeepsOldPort() throws Exception
-	{
-		int p1 = freePort();
-		listener.start(p1);
-		try (ServerSocket busy = new ServerSocket(0))
-		{
-			assertThrows(IOException.class, () -> listener.rebind(busy.getLocalPort()));
-		}
-		assertEquals(p1, listener.port());
-		assertEquals(200, post(p1, "/data", "{}"));
 	}
 }

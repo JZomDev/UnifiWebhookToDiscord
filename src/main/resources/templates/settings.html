@@ -6,7 +6,6 @@
 	<th:block th:replace="~{layout :: header('settings')}"></th:block>
 	<div class="body">
 		<p class="ok" th:if="${saved}">Settings saved.</p>
-		<p class="err" th:if="${bindError}" th:text="${bindError}">Could not listen on port 8080.</p>
 		<p class="err" th:if="${error}" th:text="${error}">Error</p>
 		<p class="err" th:if="${webhookMissing}">No Discord webhook is set, so camera alerts will not be forwarded. Add one below.</p>
 		<form method="post" th:action="@{/settings}">
@@ -21,12 +20,8 @@
 			<div class="hint" th:if="${testOk}"><span class="ok" th:text="${testOk}">Test message sent.</span>
 				<th:block th:if="${testUnsaved}"> This URL is not saved yet; click Save to use it.</th:block></div>
 			<div class="hint" th:if="${testError}"><span class="err" th:text="${testError}">Sending failed.</span></div>
-			<div class="row">
-				<label for="webhookPort">Webhook listen port</label>
-				<input id="webhookPort" name="webhookPort" inputmode="numeric" style="max-width:100px;flex:none" th:value="${form.webhookPort}">
-			</div>
-			<div class="hint">Match your container's port mapping for this port. Changing it rebinds the listener immediately.
-				The web UI uses port <span th:text="${uiPort}">45462</span>.</div>
+			<div class="hint" th:if="${listenPort > 0}">The webhook listener runs on port [[${listenPort}]]
+				(set with the <code>port</code> environment variable; map this container port in Docker).</div>
 			<div class="row">
 				<label for="consoleUrl">UniFi console link</label>
 				<input id="consoleUrl" name="consoleUrl" placeholder="https://unifi.ui.com/consoles/..." autocomplete="off">
