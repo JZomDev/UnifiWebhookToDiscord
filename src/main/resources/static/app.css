@@ -30,4 +30,7 @@ button.s{padding:8px 14px;border:1px solid var(--line);border-radius:6px;backgro
 .center p{margin-top:0}
 .center input{width:100%;margin-bottom:10px}.center button{width:100%}
 .tag{font-size:11px;background:var(--line);color:var(--mut);border-radius:10px;padding:1px 7px;margin-left:6px}
+.guide img{max-width:100%;height:auto;border-radius:6px}
+.guide pre{overflow-x:auto}
+.guide{overflow-wrap:anywhere}
 @media(max-width:560px){.row{flex-wrap:wrap}.row label{width:100%}.hint{margin-left:0}.add{flex-wrap:wrap}}
