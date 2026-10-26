@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+	Shared fragments. Page usage:
+	  <head th:replace="~{layout :: head('Cameras')}"></head>
+	  <div class="page">
+	    <div th:replace="~{layout :: header('cameras')}"></div>   (nav + notices; active = cameras | guide | settings)
+	    <div class="body">...</div>
+	  </div>
+-->
+<head th:fragment="head(title)">
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="${title} + ' · Unifi → Discord'">Unifi → Discord</title>
+	<link rel="stylesheet" th:href="@{/app.css}">
+</head>
+<body>
+
+<!-- Full header for logged-in pages: nav, then the notices. -->
+<th:block th:fragment="header(active)">
+	<div class="nav">
+		<b>Unifi → Discord</b>
+		<a th:href="@{/}" th:classappend="${active == 'cameras'} ? 'on'">Cameras</a>
+		<a th:href="@{/guide}" th:classappend="${active == 'guide'} ? 'on'">Guide</a>
+		<a th:href="@{/settings}" th:classappend="${active == 'settings'} ? 'on'">Settings</a>
+		<th:block th:replace="~{layout :: logout}"></th:block>
+	</div>
+	<th:block th:replace="~{layout :: notices}"></th:block>
+</th:block>
+
+<!-- Header without page links (login, forced password change). -->
+<th:block th:fragment="bareHeader(showLogout)">
+	<div class="nav">
+		<b>Unifi → Discord</b>
+		<th:block th:if="${showLogout}"><th:block th:replace="~{layout :: logout}"></th:block></th:block>
+	</div>
+	<th:block th:replace="~{layout :: notices}"></th:block>
+</th:block>
+
+<form th:fragment="logout" class="inline" method="post" th:action="@{/logout}">
+	<input type="hidden" name="_csrf" th:value="${csrf}">
+	<button type="submit" class="link">Log out</button>
+</form>
+
+<th:block th:fragment="notices">
+	<div class="alert" th:if="${notPersistent}">
+		Settings cannot be saved: the config directory (<code>/config</code>) is missing or not writable.
+		Changes will be lost when the app restarts. Mount a writable volume at <code>/config</code>.
+	</div>
+	<div class="banner" th:if="${envVars}">
+		<div>Environment variables still set in your container:
+			<th:block th:each="v, st : ${envVars}"><code th:text="${v}">webhook</code><th:block th:unless="${st.last}"> </th:block></th:block>.
+			They're no longer needed and can be removed from your container template; manage these values here instead.
+		</div>
+		<button type="button" title="Dismiss" onclick="this.parentNode.remove()">×</button>
+	</div>
+</th:block>
+
+</body>
+</html>

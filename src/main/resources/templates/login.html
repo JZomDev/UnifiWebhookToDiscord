@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Sign in')}"></head>
+<body>
+<div class="page">
+	<th:block th:replace="~{layout :: bareHeader(false)}"></th:block>
+	<form class="center" method="post" th:action="@{/login}">
+		<p class="mut">Sign in</p>
+		<p class="err" th:if="${error}" th:text="${error}">Invalid username or password.</p>
+		<input name="username" placeholder="Username" autocomplete="username" required autofocus th:value="${username}">
+		<input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+		<button type="submit" class="p">Sign in</button>
+	</form>
+</div>
+</body>
+</html>
