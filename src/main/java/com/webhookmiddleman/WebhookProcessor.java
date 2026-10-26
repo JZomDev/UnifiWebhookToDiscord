@@ -1,5 +1,12 @@
 package com.webhookmiddleman;
 
+import com.webhookmiddleman.models.Embed;
+import com.webhookmiddleman.models.Field;
+import com.webhookmiddleman.models.Footer;
+import com.webhookmiddleman.models.Image;
+import com.webhookmiddleman.models.Message;
+import com.webhookmiddleman.settings.Settings;
+import com.webhookmiddleman.settings.SettingsStore;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -9,24 +16,20 @@ import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import com.webhookmiddleman.models.Embed;
-import com.webhookmiddleman.models.Field;
-import com.webhookmiddleman.models.Footer;
-import com.webhookmiddleman.models.Image;
-import com.webhookmiddleman.models.Message;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RestController;
 
-@RestController
-public class WebhookController
+/**
+ * Turns a UniFi alarm payload into Discord embeds, using the live settings.
+ */
+public class WebhookProcessor
 {
+	private static final Logger logger = LogManager.getLogger(WebhookProcessor.class);
 
-	private static final Logger logger = LogManager.getLogger(WebhookController.class);
+	/** Delivers a message to Discord. */
+	public interface WebhookSender
+	{
+		void send(String webhookUrl, Message message, Embed embed, byte[] thumbnail);
+	}
 
-	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	static Map<String, String> TRIGGER_MAP = new HashMap<>();
 
 	static
@@ -84,61 +87,95 @@ public class WebhookController
 		TRIGGER_MAP.put("unknown", "Unknown");
 	}
 
-	@PostMapping("/data")
-	public ResponseEntity<String> receiveWebhook(
-		@RequestBody Map<String, Object> payload,
-		@RequestHeader Map<String, String> headers) throws JSONException
+	private final SettingsStore store;
+	private final WebhookSender sender;
+
+	public WebhookProcessor(SettingsStore store, WebhookSender sender)
 	{
+		this.store = store;
+		this.sender = sender;
+	}
 
+	/** Production sender wrapping the {@link WebhookManager} chain. */
+	public static WebhookSender discordSender()
+	{
+		return WebhookProcessor::sendWebhook;
+	}
+
+	/**
+	 * Handles a parsed UniFi payload.
+	 *
+	 * @return the HTTP status to answer UniFi with.
+	 */
+	public int handle(Map<String, Object> payload)
+	{
 		logger.info("Received webhook with payload: " + payload);
-		logger.info("Received webhook with headers: " + headers);
 
-		JSONObject data = new JSONObject(payload);
-		if (data.has("alarm"))
+		Settings settings = store.snapshot();
+		try
 		{
+			JSONObject data = new JSONObject(payload);
+			if (!data.has("alarm"))
+			{
+				return 200;
+			}
+			if (settings.webhook == null || settings.webhook.isEmpty())
+			{
+				logger.warn("Received webhook but no Discord webhook is configured; nothing sent");
+				return 200;
+			}
+
 			JSONObject alarm = data.getJSONObject("alarm");
 			JSONArray triggers = alarm.getJSONArray("triggers");
 			byte[] thumbnail = Thumbnails.decode(alarm.optString("thumbnail", null));
-			String UUID_1 = Application.UUID_1;
-			String UUID_2 = Application.UUID_2;
+			String uuid1 = settings.uuid1 == null ? "" : settings.uuid1;
+			String uuid2 = settings.uuid2 == null ? "" : settings.uuid2;
 			String eventLocalLink = alarm.has("eventLocalLink") ? alarm.getString("eventLocalLink") : null;
 			String eventPath = alarm.has("eventPath") ? alarm.getString("eventPath") : null;
-			boolean useRemote = !UUID_1.isEmpty() && !UUID_2.isEmpty(); // leave UUIDs blank to use local instead
+			boolean useRemote = !uuid1.isEmpty() && !uuid2.isEmpty(); // leave UUIDs blank to use local instead
 			if (eventPath != null && useRemote)
 			{
 				// replace local event with unifi protect full name
 				// eventPath=/protect/events/event/id_of_event_here
-				eventPath = String.format("https://unifi.ui.com/consoles/%s:%s" + eventPath, UUID_1, UUID_2);
+				eventPath = String.format("https://unifi.ui.com/consoles/%s:%s" + eventPath, uuid1, uuid2);
 			}
 			Long timestamp = data.getLong("timestamp");
-			String readable_timestamp = getUsableDate(timestamp);
+			String readableTimestamp = getUsableDate(timestamp);
 
 			for (int i = 0; i < triggers.length(); i++)
 			{
 				String device = triggers.getJSONObject(i).getString("device");
 				String trigger = TRIGGER_MAP.getOrDefault(triggers.getJSONObject(i).getString("key"), "Unknown");
-				String macAddress = getMacAdrress(device);
+				String macAddress = SettingsStore.normalizeMac(getMacAdrress(device));
 
-				String deviceName = Application.macToDeviceName.getOrDefault(macAddress.toUpperCase(), "Unknown Device");
-				Embed embed = createDiscordEmbed(trigger, deviceName, readable_timestamp, (!useRemote ? eventLocalLink : eventPath), useRemote, thumbnail != null);
+				String deviceName = macAddress == null ? null : store.cameraName(macAddress);
+				if (deviceName == null)
+				{
+					deviceName = "Unknown Device";
+				}
+				Embed embed = createDiscordEmbed(trigger, deviceName, readableTimestamp, (!useRemote ? eventLocalLink : eventPath), useRemote, thumbnail != null);
 
-				postToDiscord(embed, thumbnail);
+				postToDiscord(settings.webhook, embed, thumbnail);
 			}
+			return 200;
 		}
-
-		return ResponseEntity.ok("Webhook received successfully");
+		catch (JSONException e)
+		{
+			logger.warn("Could not parse alarm payload: {}", e.getMessage());
+			return 400;
+		}
 	}
 
-	private void postToDiscord(Embed embed, byte[] thumbnail)
+	private void postToDiscord(String webhook, Embed embed, byte[] thumbnail)
 	{
 		Message message = new Message()
 			.setUsername("Unifi Protect")
 			.setAvatarUrl("https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 
-		sendWebhook(Application.DISCORD_WEBHOOK, message, embed, thumbnail);
+		sender.send(webhook, message, embed, thumbnail);
 	}
 
-	public void sendWebhook(String url, Message message, Embed embed, byte[] thumbnail)
+	private static void sendWebhook(String url, Message message, Embed embed, byte[] thumbnail)
 	{
 		new WebhookManager()
 			.setMessage(message)
@@ -169,9 +206,6 @@ public class WebhookController
 		{
 			embed.setImage(new Image("attachment://" + Thumbnails.FILENAME));
 		}
-		// I am not a fan of the repeated author within an embed
-//		Author author = new Author("Unifi Protect",  "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
-//		embed.setAuthor(author);
 		embed.setTitle("Alert Triggered :camera_with_flash:");
 		Footer footer = new Footer("Unifi Protect", "https://pbs.twimg.com/profile_images/1610157462321254402/tMCv8T-y_400x400.png");
 		embed.setFooter(footer);
@@ -184,7 +218,7 @@ public class WebhookController
 		embed.addField(deviceField);
 		if (eventLink != null)
 		{
-			String linkText = remote ?  "Remote Link" : "Local IP Link";
+			String linkText = remote ? "Remote Link" : "Local IP Link";
 			Field eventLocalLinkField = new Field("Captured Event", String.format("[%s](%s)", linkText, eventLink), true);
 			embed.addField(eventLocalLinkField);
 		}
@@ -195,7 +229,8 @@ public class WebhookController
 
 	private String getUsableDate(Long timestamp)
 	{
-		return sdf.format(new Date(timestamp));
+		// SimpleDateFormat is not thread safe; the listener serves requests concurrently
+		return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(timestamp));
 	}
 
 	// coverts ABCDEFGHJ -> AB:DE:FG:HJ
