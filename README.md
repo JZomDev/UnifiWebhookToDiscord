@@ -14,7 +14,7 @@ This is a tiny webhook listener that listens for Unifi's webhooks sent to the do
 | Webhook listener port | `8080` by default (changeable in Settings) |
 | Config volume | `/config` (settings, cameras and the password hash) |
 
-On Unraid, add a path mapping from container path `/config` to a host path such as `/mnt/user/appdata/unifi-webhook-to-discord`, plus port mappings for `45462` (web UI) and `8080` (webhook listener). The container runs as `99:100`, so the host path must be writable by that user. If `/config` is not writable the app still starts, but the UI shows a warning that settings are not persistent and will be lost on restart.
+On Unraid, add a path mapping from container path `/config` to a host path such as `/mnt/user/appdata/unifi-webhook-to-discord`, plus port mappings for `45462` (web UI) and `8080` (webhook listener). The container runs as `99:100`, so a bind-mounted host directory must be writable by that user (`chown 99:100 /path/to/config`; Unraid appdata shares already are). A root-owned host directory leaves the app running but not persisting: the UI shows a warning, and your settings and changed password are lost on every restart.
 
 ```
 docker run -d -p 45462:45462 -p 8080:8080 -v /path/to/config:/config redzguilt/unifi-webhook-to-discord
@@ -39,9 +39,11 @@ Environment variables are no longer required. Each of these is imported once int
 
 Two further variables configure the app itself: `webui_port` (web UI port, default `45462`) and `config_dir` (settings directory, default `/config`).
 
-While any of the import variables are still set, the UI shows a banner listing them. Dismiss it with the x for the current page, or turn it off permanently with the "Env variable reminder" checkbox on the Settings page. You can remove the variables from your container template once they are imported.
+While any of the import variables are still set, the UI shows a banner listing them. Dismiss it with the x for the current page, or turn it off permanently with the "Env variable reminder" checkbox on the Settings page. You can remove the variables from your container template once they are imported. A camera you delete in the UI is not re-imported, even if its MAC variable is still set.
 
 ## Original variable-based setup
+
+The Cameras page in the web UI is the preferred way to add devices now; the variable approach below still works as an import.
 
 You can add devices by using a device's mac address as a variable and the device name as the variable value.
 
