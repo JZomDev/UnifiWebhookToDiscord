@@ -91,7 +91,6 @@ class SettingsControllerTest
 		store.update(s ->
 		{
 			s.webhook = "";
-			s.webhookPort = listenPort;
 			s.uuid1 = "";
 			s.uuid2 = "";
 			s.showEnvReminder = true;
@@ -105,23 +104,15 @@ class SettingsControllerTest
 		listener.stop();
 	}
 
-	static int freePort() throws IOException
-	{
-		try (ServerSocket s = new ServerSocket(0))
-		{
-			return s.getLocalPort();
-		}
-	}
-
 	MockHttpServletRequestBuilder authed(MockHttpServletRequestBuilder b)
 	{
 		return b.session(login.session()).param("_csrf", login.csrf());
 	}
 
-	ResultActions save(String webhook, String port, String uuid1, String uuid2, boolean reminder) throws Exception
+	ResultActions save(String webhook, String uuid1, String uuid2, boolean reminder) throws Exception
 	{
 		MockHttpServletRequestBuilder b = authed(post("/settings"))
-			.param("webhook", webhook).param("webhookPort", port).param("uuid1", uuid1).param("uuid2", uuid2);
+			.param("webhook", webhook).param("uuid1", uuid1).param("uuid2", uuid2);
 		if (reminder)
 		{
 			b.param("showEnvReminder", "on");
@@ -132,7 +123,7 @@ class SettingsControllerTest
 	ResultActions test(String webhook) throws Exception
 	{
 		return mvc.perform(authed(post("/settings/test-webhook")).param("webhook", webhook)
-			.param("webhookPort", String.valueOf(listenPort)).param("uuid1", "u-one").param("uuid2", ""));
+			.param("uuid1", "u-one").param("uuid2", ""));
 	}
 
 	@Test
@@ -145,7 +136,6 @@ class SettingsControllerTest
 		});
 		mvc.perform(get("/settings").session(login.session())).andExpect(status().isOk())
 			.andExpect(content().string(Matchers.containsString(HOOK)))
-			.andExpect(content().string(Matchers.containsString("value=\"" + listenPort + "\"")))
 			.andExpect(content().string(Matchers.containsString("&lt;b&gt;uuid&lt;/b&gt;")))
 			.andExpect(content().string(Matchers.not(Matchers.containsString("<b>uuid</b>"))))
 			.andExpect(content().string(Matchers.containsString("href=\"/change-password\"")))
@@ -156,12 +146,11 @@ class SettingsControllerTest
 	@Test
 	void saveWebhookAndUuids() throws Exception
 	{
-		save(" " + HOOK + " ", String.valueOf(listenPort), " u1 ", "u2", true).andExpect(redirectedUrl("/settings"));
+		save(" " + HOOK + " ", " u1 ", "u2", true).andExpect(redirectedUrl("/settings"));
 		Settings s = store.snapshot();
 		assertEquals(HOOK, s.webhook);
 		assertEquals("u1", s.uuid1);
 		assertEquals("u2", s.uuid2);
-		assertEquals(listenPort, s.webhookPort);
 		assertTrue(s.showEnvReminder);
 	}
 
@@ -169,7 +158,7 @@ class SettingsControllerTest
 	void blankWebhookAllowedWithWarning() throws Exception
 	{
 		store.update(s -> s.webhook = HOOK);
-		save("", String.valueOf(listenPort), "", "", true).andExpect(redirectedUrl("/settings"));
+		save("", "", "", true).andExpect(redirectedUrl("/settings"));
 		assertEquals("", store.snapshot().webhook);
 		mvc.perform(get("/settings").session(login.session()))
 			.andExpect(content().string(Matchers.containsString("will not be forwarded")));
@@ -179,7 +168,7 @@ class SettingsControllerTest
 	void invalidWebhookRejected() throws Exception
 	{
 		store.update(s -> s.webhook = HOOK);
-		save("https://example.com/<x>", String.valueOf(listenPort), "u1", "", true).andExpect(status().isBadRequest())
+		save("https://example.com/<x>", "u1", "", true).andExpect(status().isBadRequest())
 			.andExpect(content().string(Matchers.containsString("Discord webhook URL")))
 			.andExpect(content().string(Matchers.containsString("https://example.com/&lt;x&gt;")));
 		assertEquals(HOOK, store.snapshot().webhook);
@@ -187,120 +176,56 @@ class SettingsControllerTest
 	}
 
 	@Test
-	void portEqualToUiPortRejected() throws Exception
+	void pageShowsListenPortReadOnly() throws Exception
 	{
-		save(HOOK, "45462", "", "", true).andExpect(status().isBadRequest())
-			.andExpect(content().string(Matchers.containsString("web UI")));
-		assertEquals(listenPort, store.snapshot().webhookPort);
-		assertEquals("", store.snapshot().webhook);
-		assertEquals(listenPort, listener.port());
+		mvc.perform(get("/settings").session(login.session())).andExpect(status().isOk())
+			.andExpect(content().string(Matchers.containsString("The webhook listener runs on port " + listenPort)))
+			.andExpect(content().string(Matchers.containsString("<code>port</code> environment variable")))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("name=\"webhookPort\""))))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("is not running"))));
 	}
 
 	@Test
-	void portOutOfRangeRejected() throws Exception
+	void savingIgnoresAWebhookPortParameter() throws Exception
 	{
-		for (String bad : new String[]{"0", "65536", "-1", "abc", ""})
-		{
-			save(HOOK, bad, "", "", true).andExpect(status().isBadRequest())
-				.andExpect(content().string(Matchers.containsString("between 1 and 65535")));
-		}
-		assertEquals(listenPort, store.snapshot().webhookPort);
-		assertEquals(listenPort, listener.port());
-	}
-
-	@Test
-	void portChangeRebindsListener() throws Exception
-	{
-		int newPort = freePort();
-		save(HOOK, String.valueOf(newPort), "", "", true).andExpect(redirectedUrl("/settings"));
-		assertEquals(newPort, store.snapshot().webhookPort);
-		assertEquals(newPort, listener.port());
+		int other = listenPort == 65535 ? 65534 : listenPort + 1;
+		mvc.perform(authed(post("/settings")).param("webhook", HOOK).param("webhookPort", String.valueOf(other))
+			.param("uuid1", "").param("uuid2", "")).andExpect(redirectedUrl("/settings"));
 		assertEquals(HOOK, store.snapshot().webhook);
-	}
-
-	@Test
-	void busyPortRefusesSaveAndKeepsOldSettings() throws Exception
-	{
-		try (ServerSocket busy = new ServerSocket(0))
-		{
-			int port = busy.getLocalPort();
-			save(HOOK, String.valueOf(port), "u1", "u2", false).andExpect(status().isBadRequest())
-				.andExpect(content().string(Matchers.containsString("Could not listen on port " + port)));
-		}
-		Settings s = store.snapshot();
-		assertEquals(listenPort, s.webhookPort);
-		assertEquals("", s.webhook);
-		assertEquals("", s.uuid1);
-		assertEquals("", s.uuid2);
-		assertTrue(s.showEnvReminder);
 		assertEquals(listenPort, listener.port());
 	}
 
-	/** Leaves the listener down after failing to start on {@code port}, as when the saved port was busy at boot. */
+	/** Leaves the listener down after failing to start on {@code port}, as when env {@code port} was busy at boot. */
 	void failStart(int port)
 	{
 		listener.stop();
 		assertThrows(IOException.class, () -> listener.start(port));
-		store.update(s -> s.webhookPort = port);
 	}
 
 	@Test
-	void listenerDownShowsNoticeButSavingOtherFieldsWorks() throws Exception
+	void listenerDownShowsNoticeInsteadOfPortLineAndSavingStillWorks() throws Exception
 	{
 		try (ServerSocket busy = new ServerSocket(0))
 		{
 			int port = busy.getLocalPort();
 			failStart(port);
 			mvc.perform(get("/settings").session(login.session()))
-				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port + ":")));
+				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port + ":")))
+				.andExpect(content().string(Matchers.containsString("port environment variable")))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("The webhook listener runs on port"))));
 			mvc.perform(get("/").session(login.session()))
-				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port)));
+				.andExpect(content().string(Matchers.containsString("Webhook listener is not running on port " + port)))
+				.andExpect(content().string(Matchers.containsString("port environment variable")));
 
-			save(HOOK, String.valueOf(port), "u1", "u2", false).andExpect(redirectedUrl("/settings"))
-				.andExpect(flash().attribute("saved", true))
-				.andExpect(flash().attribute("bindError", Matchers.containsString("Could not listen on port " + port)));
+			save(HOOK, "u1", "u2", false).andExpect(redirectedUrl("/settings"))
+				.andExpect(flash().attributeCount(1));
 			Settings s = store.snapshot();
 			assertEquals(HOOK, s.webhook);
 			assertEquals("u1", s.uuid1);
 			assertEquals("u2", s.uuid2);
-			assertEquals(port, s.webhookPort);
 			assertFalse(s.showEnvReminder);
 			assertEquals(-1, listener.port());
 		}
-		// Port is free now: saving again starts the listener and the notice goes away.
-		int port = store.snapshot().webhookPort;
-		save(HOOK, String.valueOf(port), "u1", "u2", false).andExpect(redirectedUrl("/settings"))
-			.andExpect(flash().attributeCount(1));
-		assertEquals(port, listener.port());
-		mvc.perform(get("/settings").session(login.session()))
-			.andExpect(content().string(Matchers.not(Matchers.containsString("is not running"))));
-	}
-
-	@Test
-	void listenerDownChangingToBusyPortIsRefused() throws Exception
-	{
-		try (ServerSocket down = new ServerSocket(0); ServerSocket busy = new ServerSocket(0))
-		{
-			failStart(down.getLocalPort());
-			int port = busy.getLocalPort();
-			save(HOOK, String.valueOf(port), "u1", "", true).andExpect(status().isBadRequest())
-				.andExpect(content().string(Matchers.containsString("Could not listen on port " + port)));
-			assertEquals(down.getLocalPort(), store.snapshot().webhookPort);
-			assertEquals("", store.snapshot().webhook);
-		}
-	}
-
-	@Test
-	void listenerDownChangingToFreePortStartsIt() throws Exception
-	{
-		try (ServerSocket down = new ServerSocket(0))
-		{
-			failStart(down.getLocalPort());
-		}
-		int newPort = freePort();
-		save(HOOK, String.valueOf(newPort), "", "", true).andExpect(redirectedUrl("/settings"));
-		assertEquals(newPort, listener.port());
-		assertEquals(newPort, store.snapshot().webhookPort);
 	}
 
 	@Test
@@ -333,7 +258,7 @@ class SettingsControllerTest
 	ResultActions console(String url) throws Exception
 	{
 		return mvc.perform(authed(post("/settings/console-url")).param("consoleUrl", url).param("webhook", OTHER_HOOK)
-			.param("webhookPort", String.valueOf(listenPort)).param("uuid1", "old-one").param("uuid2", "old-two"));
+			.param("uuid1", "old-one").param("uuid2", "old-two"));
 	}
 
 	@Test
@@ -401,8 +326,8 @@ class SettingsControllerTest
 	@Test
 	void saveRequiresCsrf() throws Exception
 	{
-		mvc.perform(post("/settings").session(login.session()).param("webhook", HOOK)
-			.param("webhookPort", String.valueOf(listenPort))).andExpect(status().isForbidden());
+		mvc.perform(post("/settings").session(login.session()).param("webhook", HOOK))
+			.andExpect(status().isForbidden());
 		assertEquals("", store.snapshot().webhook);
 	}
 
@@ -421,7 +346,7 @@ class SettingsControllerTest
 	{
 		mvc.perform(get("/settings").session(login.session()))
 			.andExpect(content().string(Matchers.containsString("class=\"banner\"")));
-		save("", String.valueOf(listenPort), "", "", false).andExpect(redirectedUrl("/settings"));
+		save("", "", "", false).andExpect(redirectedUrl("/settings"));
 		assertFalse(store.snapshot().showEnvReminder);
 		mvc.perform(get("/settings").session(login.session()))
 			.andExpect(content().string(Matchers.not(Matchers.containsString("class=\"banner\""))));

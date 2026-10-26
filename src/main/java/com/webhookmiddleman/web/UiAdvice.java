@@ -40,7 +40,7 @@ public class UiAdvice
 		if (authed && down != null)
 		{
 			model.addAttribute("listenerDown", "Webhook listener is not running on port " + listener.failedPort() + ": " + down
-				+ ". Unifi alarms are not being received; free that port or choose another one in Settings.");
+				+ ". Unifi alarms are not being received; free that port, or set the port environment variable to another port (and update the Docker port mapping), then restart the container.");
 		}
 		model.addAttribute("notPersistent", !store.isPersistent());
 		model.addAttribute("configDir", store.directory().toString());

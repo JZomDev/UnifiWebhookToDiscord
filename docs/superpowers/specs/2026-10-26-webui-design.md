@@ -29,6 +29,7 @@ Today the app is configured entirely through environment variables: `webhook`, `
 
 ## Decisions (made with the user)
 
+- **Amendment 2026-10-26: listen port is env-only.** The webhook listen port is no longer editable in the UI or stored in settings; it comes from env `port` (container side, default 8080) and Settings only shows it read-only. Reason: it is the container side of the Docker port mapping, so changing it in the UI could silently break the mapping; the Unraid template maps host 7019 to container 8080. This supersedes the "editable in the UI / rebind" parts below.
 - **Two ports.** Web UI on **45462** (default, fixed in the UI). Webhook listener for UniFi keeps default **8080** and is editable in the UI (user's own setup uses 7019, just a saved value). Changing the listener port should rebind the listener without a full restart; the UI warns that the container port mapping must match.
 - **Login.** Form login, session cookie, logout link. Default credentials `admin`/`admin`, one-time; forced password change on first login.
 - **Migration.** On startup the app reads the env vars and imports values into saved settings. If any imported/present values came from env vars, every page shows a banner at the top naming exactly which variables (e.g. `webhook`, `UUID_1`, each MAC variable) and saying they are no longer needed and can be removed. The banner can be dismissed but returns on every page load until the user turns off the "env variable reminder" toggle in Settings.

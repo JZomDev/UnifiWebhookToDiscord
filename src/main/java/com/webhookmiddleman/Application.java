@@ -62,10 +62,14 @@ public class Application
 		return new WebhookListener(processor);
 	}
 
-	/** Starts the webhook listener once the app is up (after the env import, which {@code envVars} forces). */
+	/**
+	 * Starts the webhook listener on env {@code port} (see {@link EnvImporter#listenPort}) once the app is up,
+	 * after the env import, which {@code envVars} forces.
+	 */
 	@Bean
-	ApplicationListener<ApplicationReadyEvent> webhookListenerStarter(WebhookListener listener, SettingsStore store,
-		@Qualifier("envVars") List<String> envVars, @Value("${listener.autostart:true}") boolean autostart)
+	ApplicationListener<ApplicationReadyEvent> webhookListenerStarter(WebhookListener listener,
+		@Qualifier("envVars") List<String> envVars, @Value("${listener.autostart:true}") boolean autostart,
+		@Value("${server.port:45462}") int uiPort)
 	{
 		return event ->
 		{
@@ -73,14 +77,14 @@ public class Application
 			{
 				return;
 			}
-			int port = store.snapshot().webhookPort;
+			int port = EnvImporter.listenPort(System.getenv(), uiPort);
 			try
 			{
 				listener.start(port);
 			}
 			catch (IOException e)
 			{
-				logger.error("Could not start webhook listener on port {}: {}. Change the port in Settings.", port, e.toString());
+				logger.error("Could not start webhook listener on port {}: {}. Free that port or set the port environment variable to another one.", port, e.toString());
 			}
 		};
 	}

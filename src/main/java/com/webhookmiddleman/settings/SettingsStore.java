@@ -134,7 +134,6 @@ public class SettingsStore
 			s.passwordHash = o.isNull("passwordHash") ? null : o.optString("passwordHash", null);
 			s.mustChangePassword = o.optBoolean("mustChangePassword", true);
 			s.webhook = o.optString("webhook", "");
-			s.webhookPort = o.optInt("webhookPort", 8080);
 			s.uuid1 = o.optString("uuid1", "");
 			s.uuid2 = o.optString("uuid2", "");
 			s.showEnvReminder = o.optBoolean("showEnvReminder", true);
@@ -207,7 +206,6 @@ public class SettingsStore
 		o.put("passwordHash", settings.passwordHash == null ? JSONObject.NULL : settings.passwordHash);
 		o.put("mustChangePassword", settings.mustChangePassword);
 		o.put("webhook", settings.webhook);
-		o.put("webhookPort", settings.webhookPort);
 		o.put("uuid1", settings.uuid1);
 		o.put("uuid2", settings.uuid2);
 		o.put("showEnvReminder", settings.showEnvReminder);

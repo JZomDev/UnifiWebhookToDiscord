@@ -4,12 +4,8 @@ import com.webhookmiddleman.WebhookListener;
 import com.webhookmiddleman.settings.Settings;
 import com.webhookmiddleman.settings.SettingsStore;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,17 +13,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-/** The Settings page: webhook (with a test button), listener port, console UUIDs and the env reminder toggle. */
+/**
+ * The Settings page: webhook (with a test button), console UUIDs and the env reminder toggle. The webhook
+ * listen port is only shown: it is set with env {@code port}, the container side of the Docker port mapping.
+ */
 @Controller
 public class SettingsController
 {
-	private static final Logger log = LoggerFactory.getLogger(SettingsController.class);
-
 	/** Same pattern {@code WebhookManager} accepts. */
 	static final Pattern WEBHOOK = Pattern.compile("https://discord\\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\\-]+");
 	static final String WEBHOOK_ERROR = "Enter a Discord webhook URL like https://discord.com/api/webhooks/123/abc, or leave it empty.";
 	static final String TEST_WEBHOOK_ERROR = "Enter a valid Discord webhook URL (https://discord.com/api/webhooks/...) to send a test message.";
-	static final String PORT_ERROR = "Enter a port between 1 and 65535.";
 
 	/** A unifi.ui.com console link: {@code https://unifi.ui.com/consoles/<UUID 1>:<UUID 2>[/...]}. */
 	static final Pattern CONSOLE_URL = Pattern.compile("https://unifi\\.ui\\.com/consoles/([A-Za-z0-9_\\-]+):([A-Za-z0-9_\\-]+)(?:[/?#].*)?");
@@ -36,19 +32,16 @@ public class SettingsController
 	private final SettingsStore store;
 	private final WebhookListener listener;
 	private final TestMessageSender sender;
-	private final int uiPort;
 
-	public SettingsController(SettingsStore store, WebhookListener listener, TestMessageSender sender,
-		@Value("${server.port:45462}") int uiPort)
+	public SettingsController(SettingsStore store, WebhookListener listener, TestMessageSender sender)
 	{
 		this.store = store;
 		this.listener = listener;
 		this.sender = sender;
-		this.uiPort = uiPort;
 	}
 
 	/** The values shown in the form. */
-	public record Form(String webhook, String webhookPort, String uuid1, String uuid2, boolean showEnvReminder)
+	public record Form(String webhook, String uuid1, String uuid2, boolean showEnvReminder)
 	{
 	}
 
@@ -58,88 +51,48 @@ public class SettingsController
 		Settings s = store.snapshot();
 		if (!model.containsAttribute("form"))
 		{
-			model.addAttribute("form", new Form(s.webhook, String.valueOf(s.webhookPort), s.uuid1, s.uuid2, s.showEnvReminder));
+			model.addAttribute("form", new Form(s.webhook, s.uuid1, s.uuid2, s.showEnvReminder));
 		}
 		return view(model);
 	}
 
 	@PostMapping("/settings")
-	public String save(@RequestParam(defaultValue = "") String webhook, @RequestParam(defaultValue = "") String webhookPort,
-		@RequestParam(defaultValue = "") String uuid1, @RequestParam(defaultValue = "") String uuid2,
-		@RequestParam(required = false) String showEnvReminder, HttpServletResponse response, Model model,
-		RedirectAttributes redirect)
+	public String save(@RequestParam(defaultValue = "") String webhook, @RequestParam(defaultValue = "") String uuid1,
+		@RequestParam(defaultValue = "") String uuid2, @RequestParam(required = false) String showEnvReminder,
+		HttpServletResponse response, Model model, RedirectAttributes redirect)
 	{
-		Form form = new Form(webhook.strip(), webhookPort.strip(), uuid1.strip(), uuid2.strip(), showEnvReminder != null);
+		Form form = new Form(webhook.strip(), uuid1.strip(), uuid2.strip(), showEnvReminder != null);
 		model.addAttribute("form", form);
 
 		if (!form.webhook().isEmpty() && !WEBHOOK.matcher(form.webhook()).matches())
 		{
-			return invalid(response, model, WEBHOOK_ERROR);
+			model.addAttribute("error", WEBHOOK_ERROR);
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return view(model);
 		}
-		int port = parsePort(form.webhookPort());
-		if (port < 1)
+		store.update(s ->
 		{
-			return invalid(response, model, PORT_ERROR);
-		}
-		if (port == uiPort)
-		{
-			return invalid(response, model, "Port " + port + " is used by the web UI. Choose a different port for the webhook listener.");
-		}
-
-		String bindError = null;
-		synchronized (this)
-		{
-			if (port != listener.port())
-			{
-				// The listener is down on the saved port (e.g. it was busy at startup) and the port is unchanged:
-				// save the other fields regardless and just retry the bind.
-				boolean retryOnly = listener.port() == -1 && port == store.snapshot().webhookPort;
-				try
-				{
-					listener.rebind(port);
-				}
-				catch (IOException e)
-				{
-					log.warn("Could not bind webhook listener to port {}: {}", port, e.toString());
-					String reason = "Could not listen on port " + port + " (" + WebhookListener.describe(e) + "). It may be in use.";
-					if (!retryOnly)
-					{
-						// A new port that cannot be bound: nothing is saved and the old port keeps running.
-						return invalid(response, model, reason + " Settings were not saved.");
-					}
-					bindError = reason + " The other settings were saved; the webhook listener is still not running.";
-				}
-			}
-			store.update(s ->
-			{
-				s.webhook = form.webhook();
-				s.webhookPort = port;
-				s.uuid1 = form.uuid1();
-				s.uuid2 = form.uuid2();
-				s.showEnvReminder = form.showEnvReminder();
-			});
-		}
-		if (bindError != null)
-		{
-			redirect.addFlashAttribute("bindError", bindError);
-		}
+			s.webhook = form.webhook();
+			s.uuid1 = form.uuid1();
+			s.uuid2 = form.uuid2();
+			s.showEnvReminder = form.showEnvReminder();
+		});
 		redirect.addFlashAttribute("saved", true);
 		return "redirect:/settings";
 	}
 
 	/** Sends a test message to the webhook currently typed in the form (saved or not). */
 	@PostMapping("/settings/test-webhook")
-	public String testWebhook(@RequestParam(defaultValue = "") String webhook, @RequestParam(required = false) String webhookPort,
-		@RequestParam(required = false) String uuid1, @RequestParam(required = false) String uuid2,
-		@RequestParam(required = false) String showEnvReminder, HttpServletResponse response, Model model)
+	public String testWebhook(@RequestParam(defaultValue = "") String webhook, @RequestParam(required = false) String uuid1,
+		@RequestParam(required = false) String uuid2, @RequestParam(required = false) String showEnvReminder,
+		HttpServletResponse response, Model model)
 	{
 		Settings s = store.snapshot();
 		// Keep whatever else was typed, so testing does not discard unsaved edits.
 		Form form = new Form(webhook.strip(),
-			webhookPort != null ? webhookPort.strip() : String.valueOf(s.webhookPort),
 			uuid1 != null ? uuid1.strip() : s.uuid1,
 			uuid2 != null ? uuid2.strip() : s.uuid2,
-			webhookPort != null ? showEnvReminder != null : s.showEnvReminder);
+			submittedForm(uuid1) ? showEnvReminder != null : s.showEnvReminder);
 		model.addAttribute("form", form);
 		if (!WEBHOOK.matcher(form.webhook()).matches())
 		{
@@ -158,18 +111,16 @@ public class SettingsController
 	 */
 	@PostMapping("/settings/console-url")
 	public String fillFromConsoleUrl(@RequestParam(defaultValue = "") String consoleUrl, @RequestParam(required = false) String webhook,
-		@RequestParam(required = false) String webhookPort, @RequestParam(required = false) String uuid1,
-		@RequestParam(required = false) String uuid2, @RequestParam(required = false) String showEnvReminder,
-		HttpServletResponse response, Model model)
+		@RequestParam(required = false) String uuid1, @RequestParam(required = false) String uuid2,
+		@RequestParam(required = false) String showEnvReminder, HttpServletResponse response, Model model)
 	{
 		Settings s = store.snapshot();
 		Matcher m = CONSOLE_URL.matcher(consoleUrl.strip());
 		boolean found = m.matches();
 		model.addAttribute("form", new Form(webhook != null ? webhook.strip() : s.webhook,
-			webhookPort != null ? webhookPort.strip() : String.valueOf(s.webhookPort),
 			found ? m.group(1) : uuid1 != null ? uuid1.strip() : s.uuid1,
 			found ? m.group(2) : uuid2 != null ? uuid2.strip() : s.uuid2,
-			webhookPort != null ? showEnvReminder != null : s.showEnvReminder));
+			submittedForm(uuid1) ? showEnvReminder != null : s.showEnvReminder));
 		if (!found)
 		{
 			model.addAttribute("consoleError", CONSOLE_URL_ERROR);
@@ -180,29 +131,21 @@ public class SettingsController
 		return view(model);
 	}
 
-	private String invalid(HttpServletResponse response, Model model, String error)
+	/**
+	 * True when the request came from the whole Settings form (its text boxes are always sent), so a missing
+	 * {@code showEnvReminder} means the box is unchecked rather than not sent.
+	 */
+	private static boolean submittedForm(String uuid1)
 	{
-		model.addAttribute("error", error);
-		response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-		return view(model);
+		return uuid1 != null;
 	}
 
 	private String view(Model model)
 	{
 		Settings s = store.snapshot();
 		model.addAttribute("webhookMissing", s.webhook.isBlank());
-		model.addAttribute("uiPort", uiPort);
+		// -1 while the listener is down; the layout then shows why instead.
+		model.addAttribute("listenPort", listener.port());
 		return "settings";
-	}
-
-	/** Returns the port, or -1 if it is not a number between 1 and 65535. */
-	static int parsePort(String raw)
-	{
-		if (raw.isEmpty() || raw.length() > 5 || !raw.chars().allMatch(c -> c >= '0' && c <= '9'))
-		{
-			return -1;
-		}
-		int port = Integer.parseInt(raw);
-		return port >= 1 && port <= 65535 ? port : -1;
 	}
 }
