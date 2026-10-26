@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Mockup</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1d2330;--mut:#6b7280;--card:#fff;--line:#e3e6eb;--acc:#2563eb;--warn:#fff7e0;--warnl:#f0d98a}
+@media(prefers-color-scheme:dark){:root{--bg:#14171c;--fg:#e6e8ec;--mut:#8b93a1;--card:#1d2127;--line:#2c323b;--acc:#6aa0ff;--warn:#3a3217;--warnl:#6b5a1f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif}
+h1{font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:48px auto 12px;max-width:640px;padding:0 16px}
+.page{max-width:640px;margin:0 auto 8px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.nav{display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.nav b{flex:1}.nav a{color:var(--acc);text-decoration:none}.nav a.on{font-weight:600;border-bottom:2px solid var(--acc)}
+.banner{background:var(--warn);border-bottom:1px solid var(--warnl);padding:10px 16px;font-size:13px;display:flex;gap:12px}
+.banner div{flex:1}.banner code{background:rgba(0,0,0,.08);padding:1px 4px;border-radius:3px}
+.banner button{border:0;background:none;color:var(--mut);cursor:pointer;font-size:18px}
+.body{padding:16px}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--mut);font-weight:500;padding:4px 0}
+td{padding:8px 0;border-top:1px solid var(--line)}td.mac{font-family:ui-monospace,monospace;font-size:13px}
+td.act{text-align:right}td.act a{color:var(--mut);font-size:13px;margin-left:10px}
+.add{display:flex;gap:8px;margin-top:14px}
+input{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;min-width:0}
+.add input:first-child{width:170px;font-family:ui-monospace,monospace}.add input:nth-child(2){flex:1}
+button.p{padding:8px 14px;border:0;border-radius:6px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+.row{display:flex;align-items:center;gap:12px;margin:12px 0}.row label{width:150px;color:var(--mut);font-size:13px}.row input{flex:1}
+.hint{font-size:12px;color:var(--mut);margin:-6px 0 8px 162px}
+.center{max-width:320px;margin:0 auto;padding:28px 16px}
+.center input{width:100%;margin-bottom:10px}.center button{width:100%}
+.tag{font-size:11px;background:var(--line);color:var(--mut);border-radius:10px;padding:1px 7px;margin-left:6px}
+</style></head><body>
+
+<h1>1 · Cameras (home page, env vars still set)</h1>
+<div class="page">
+  <div class="nav"><b>Unifi → Discord</b><a class="on">Cameras</a><a>Settings</a><a>Log out</a></div>
+  <div class="banner"><div>Imported from environment variables: <code>webhook</code> <code>port</code> <code>UUID_1</code> <code>aa:bb:cc:11:22:33</code> <code>aa:bb:cc:44:55:66</code>. They're no longer needed and can be removed from your container template.</div><button title="Dismiss">×</button></div>
+  <div class="body">
+    <table>
+      <tr><th>MAC address</th><th>Name</th><th></th></tr>
+      <tr><td class="mac">aa:bb:cc:11:22:33</td><td>Front Door</td><td class="act"><a>edit</a><a>delete</a></td></tr>
+      <tr><td class="mac">aa:bb:cc:44:55:66</td><td>Driveway</td><td class="act"><a>edit</a><a>delete</a></td></tr>
+      <tr><td class="mac">aa:bb:cc:77:88:99</td><td>Back Yard</td><td class="act"><a>edit</a><a>delete</a></td></tr>
+    </table>
+    <div class="add"><input placeholder="MAC address"><input placeholder="Camera name"><button class="p">Add</button></div>
+  </div>
+</div>
+
+<h1>2 · Settings</h1>
+<div class="page">
+  <div class="nav"><b>Unifi → Discord</b><a>Cameras</a><a class="on">Settings</a><a>Log out</a></div>
+  <div class="body">
+    <div class="row"><label>Discord webhook</label><input value="https://discord.com/api/webhooks/123/abc…"></div>
+    <div class="row"><label>Webhook listen port</label><input value="7019" style="max-width:100px;flex:none"></div>
+    <div class="hint">Match your container's port mapping. Changing this rebinds the listener immediately.</div>
+    <div class="row"><label>Console UUID 1</label><input value="" placeholder="optional"></div>
+    <div class="row"><label>Console UUID 2</label><input value="" placeholder="optional"></div>
+    <div class="row"><label>Env variable reminder</label><span><input type="checkbox" checked> Show banner when env variables are still set</span></div>
+    <div class="row"><label></label><button class="p">Save</button><a style="color:var(--acc);margin-left:auto">Change password</a></div>
+  </div>
+</div>
+
+<h1>3 · Login and forced password change</h1>
+<div class="page" style="display:flex">
+  <div class="center" style="flex:1;border-right:1px solid var(--line)">
+    <p style="color:var(--mut);margin-top:0">Sign in</p>
+    <input placeholder="Username"><input type="password" placeholder="Password"><button class="p">Sign in</button>
+  </div>
+  <div class="center" style="flex:1">
+    <p style="color:var(--mut);margin-top:0">Choose a new password to continue</p>
+    <input type="password" placeholder="New password"><input type="password" placeholder="Repeat"><button class="p">Save and continue</button>
+  </div>
+</div>
+</body></html>
