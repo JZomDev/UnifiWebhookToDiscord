@@ -1,6 +1,7 @@
 package com.webhookmiddleman;
 
 import com.webhookmiddleman.settings.EnvImporter;
+import com.webhookmiddleman.settings.MountInfo;
 import com.webhookmiddleman.settings.SettingsStore;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -28,11 +29,18 @@ public class Application
 		app.run(args);
 	}
 
-	/** Settings file {@code settings.json} in {@code config.dir} (env {@code config_dir}, default {@code /config}). */
+	/**
+	 * Settings file {@code settings.json} in {@code config.dir} (env {@code config_dir}, default {@code /config}).
+	 * With {@code config.require-mount} (env {@code config_require_mount}, set in the Docker image) the
+	 * settings only count as persistent when the config dir is a mount point in {@code config.mountinfo}.
+	 */
 	@Bean
-	SettingsStore settingsStore(@Value("${config.dir:/config}") String configDir)
+	SettingsStore settingsStore(@Value("${config.dir:/config}") String configDir,
+		@Value("${config.require-mount:false}") boolean requireMount,
+		@Value("${config.mountinfo:/proc/self/mountinfo}") String mountinfo)
 	{
-		return new SettingsStore(Path.of(configDir, "settings.json"));
+		return new SettingsStore(Path.of(configDir, "settings.json"),
+			requireMount ? MountInfo.checker(Path.of(mountinfo)) : null);
 	}
 
 	/** Runs the one-time env import; the result lists the legacy env vars currently set, for the UI banner. */

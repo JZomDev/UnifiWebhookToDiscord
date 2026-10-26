@@ -19,8 +19,11 @@ RUN mkdir -p /srv
 WORKDIR /srv
 COPY --from=builder /app/target/Unifi-Webhook-To-Discord-1.0.jar /srv
 
+# No VOLUME here on purpose: an anonymous volume would look persistent but is
+# dropped when the container is recreated. Users must map /config themselves;
+# config_require_mount makes the app warn in the UI when /config is not a mount.
 RUN mkdir -p /config && chown 99:100 /config
-VOLUME /config
+ENV config_require_mount=true
 EXPOSE 45462 8080
 
 USER 99:100

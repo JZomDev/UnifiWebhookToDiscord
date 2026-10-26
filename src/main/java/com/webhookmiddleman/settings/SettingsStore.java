@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import org.json.JSONArray;
@@ -17,7 +18,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * JSON-file-backed store for {@link Settings}. Falls back to memory only if the
- * file cannot be written.
+ * file cannot be written. With a mount check, the store also reports itself as
+ * not persistent when the config directory is not a mounted volume (the file is
+ * still written, but lives in the container layer and is lost on recreate).
  */
 public class SettingsStore
 {
@@ -27,11 +30,29 @@ public class SettingsStore
 	private final Path file;
 	private Settings settings = new Settings();
 	private volatile boolean persistent;
+	private final boolean mounted;
 
 	public SettingsStore(Path file)
 	{
+		this(file, null);
+	}
+
+	/**
+	 * @param mountCheck tells whether the config directory is a mounted volume, or
+	 *        null to skip the check
+	 */
+	public SettingsStore(Path file, Predicate<Path> mountCheck)
+	{
 		this.file = file;
+		this.mounted = mountCheck == null || mountCheck.test(directory());
 		load();
+	}
+
+	/** The absolute, normalized directory that holds the settings file. */
+	public Path directory()
+	{
+		Path parent = file.toAbsolutePath().normalize().getParent();
+		return parent == null ? file.toAbsolutePath().normalize() : parent;
 	}
 
 	public static String normalizeMac(String raw)
@@ -59,9 +80,10 @@ public class SettingsStore
 		persist();
 	}
 
+	/** True if saved settings survive a container update: the file is writable and, if checked, on a mounted volume. */
 	public boolean isPersistent()
 	{
-		return persistent;
+		return persistent && mounted;
 	}
 
 	public synchronized String cameraName(String normalizedMac)

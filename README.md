@@ -12,9 +12,13 @@ This is a tiny webhook listener that listens for Unifi's webhooks sent to the do
 | --- | --- |
 | Web UI port | `45462` (override with env `webui_port`) |
 | Webhook listener port | `8080` by default (changeable in Settings) |
-| Config volume | `/config` (settings, cameras and the password hash) |
+| Config volume | `/config` (settings, cameras and the password hash), **required** for settings to persist |
 
-On Unraid, add a path mapping from container path `/config` to a host path such as `/mnt/user/appdata/unifi-webhook-to-discord`, plus port mappings for `45462` (web UI) and `8080` (webhook listener). The container runs as `99:100`, so a bind-mounted host directory must be writable by that user (`chown 99:100 /path/to/config`; Unraid appdata shares already are). A root-owned host directory leaves the app running but not persisting: the UI shows a warning, and your settings and changed password are lost on every restart.
+You must map a host folder to `/config`, otherwise your settings, cameras and password are lost whenever the container is updated or recreated (on Unraid that includes every image update and every template edit). The image does not create a volume for you.
+
+On Unraid, add a Path mapping from container path `/config` to a host path such as `/mnt/user/appdata/unifi-webhook-to-discord`, plus port mappings for `45462` (web UI) and `8080` (webhook listener). The container runs as `99:100`, so the host directory must be writable by that user, for example `chown 99:100 /path/to/config`.
+
+If `/config` is not a mapped volume, or is not writable, the app still runs and the UI shows a red warning naming the config directory: settings are kept only inside the container and are lost on update or recreate. In that state the legacy environment variables keep working as before (they are imported on every start), and the environment-variable banner asks you to keep them until you have mapped the volume. Once `/config` is mapped and writable the warning disappears.
 
 ```
 docker run -d -p 45462:45462 -p 8080:8080 -v /path/to/config:/config redzguilt/unifi-webhook-to-discord
@@ -37,9 +41,9 @@ Environment variables are no longer required. Each of these is imported once int
 - `UUID_1`, `UUID_2`: Unifi console UUIDs
 - MAC address variables (for example `AA:BB:CC:11:22:33=Front`): imported as cameras, with the value as the name
 
-Two further variables configure the app itself: `webui_port` (web UI port, default `45462`) and `config_dir` (settings directory, default `/config`).
+Further variables configure the app itself: `webui_port` (web UI port, default `45462`), `config_dir` (settings directory, default `/config`) and `config_require_mount` (set to `true` in the image; warns when the settings directory is not a mounted volume).
 
-While any of the import variables are still set, the UI shows a banner listing them. Dismiss it with the x for the current page, or turn it off permanently with the "Env variable reminder" checkbox on the Settings page. You can remove the variables from your container template once they are imported. A camera you delete in the UI is not re-imported, even if its MAC variable is still set.
+While any of the import variables are still set, the UI shows a banner listing them. Dismiss it with the x for the current page, or turn it off permanently with the "Env variable reminder" checkbox on the Settings page. Once `/config` is mapped and the values are imported, you can remove the variables from your container template; while settings are not persistent, keep them. A camera you delete in the UI is not re-imported, even if its MAC variable is still set.
 
 ## Original variable-based setup
 

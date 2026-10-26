@@ -44,13 +44,16 @@
 
 <th:block th:fragment="notices">
 	<div class="alert" th:if="${notPersistent}">
-		Settings cannot be saved: the config directory (<code>/config</code>) is missing or not writable.
-		Changes will be lost when the app restarts. Mount a writable volume at <code>/config</code>.
+		Settings are not stored persistently: the config directory (<code th:text="${configDir}">/config</code>) is not a mapped volume or is not writable.
+		Your settings, cameras and password will be lost when the container is updated or recreated.
+		Map a writable host folder to <code th:text="${configDir}">/config</code> (on Unraid, add a Path mapping) and restart the container.
 	</div>
 	<div class="banner" th:if="${envVars}">
 		<div>Environment variables still set in your container:
 			<th:block th:each="v, st : ${envVars}"><code th:text="${v}">webhook</code><th:block th:unless="${st.last}"> </th:block></th:block>.
-			They're no longer needed and can be removed from your container template; manage these values here instead.
+			<th:block th:unless="${notPersistent}">They're no longer needed and can be removed from your container template; manage these values here instead.</th:block>
+			<th:block th:if="${notPersistent}">Keep them for now: settings are not stored persistently yet, so these values are imported again on every start.
+				First map a volume to <code th:text="${configDir}">/config</code>; once settings persist, the variables can go.</th:block>
 		</div>
 		<button type="button" title="Dismiss" onclick="this.parentNode.remove()">×</button>
 	</div>

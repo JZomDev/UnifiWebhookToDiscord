@@ -72,6 +72,31 @@ class SettingsStoreTest
 	}
 
 	@Test
+	void unmountedDirectoryIsNotPersistentButStillWorks() throws Exception
+	{
+		Path file = dir.resolve("settings.json");
+		SettingsStore store = new SettingsStore(file, d -> false);
+		assertFalse(store.isPersistent());
+		store.update(s -> s.webhook = "w");
+		assertFalse(store.isPersistent());
+		assertEquals("w", store.snapshot().webhook);
+		assertEquals(dir.toAbsolutePath().normalize(), store.directory());
+	}
+
+	@Test
+	void mountCheckReceivesConfigDirectory() throws Exception
+	{
+		Path[] seen = new Path[1];
+		SettingsStore store = new SettingsStore(dir.resolve("settings.json"), d ->
+		{
+			seen[0] = d;
+			return true;
+		});
+		assertTrue(store.isPersistent());
+		assertEquals(dir.toAbsolutePath().normalize(), seen[0]);
+	}
+
+	@Test
 	void unwritableLocationFallsBackToMemory() throws Exception
 	{
 		Path blocker = dir.resolve("file");

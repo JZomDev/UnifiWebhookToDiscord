@@ -223,6 +223,8 @@ class AuthFlowTest
 			.andExpect(content().string(Matchers.not(Matchers.containsString("AA:BB:CC:11:22:33"))));
 		TestAuth.Login login = TestAuth.login(mvc);
 		mvc.perform(get("/").session(login.session()))
-			.andExpect(content().string(Matchers.containsString("<code>AA:BB:CC:11:22:33</code>")));
+			.andExpect(content().string(Matchers.containsString("<code>AA:BB:CC:11:22:33</code>")))
+			.andExpect(content().string(Matchers.containsString("can be removed")))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("updated or recreated"))));
 	}
 }
