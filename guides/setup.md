@@ -8,12 +8,18 @@ Populate the WebUi:
 
 ![image](https://github.com/user-attachments/assets/06da0f30-3a6c-4f76-9f3e-8dfe3a5230b7)
 
+![image](https://github.com/user-attachments/assets/0feabc9c-a1e9-49ee-991f-aef5fff25107)
+
 
 The Mac Address can be found here:
 
 ![image](https://github.com/user-attachments/assets/9a8c5451-0cbe-44ba-bd15-475641497b49)
 
-The Unifi set up is (optional thumbnails)
+The Console UUID 1 and Console UUID 2 are from the URL
+
+https://unifi.ui.com/consoles/CONSOLE_UUID_1:CONSOLE_UUID_2/protect
+
+The Unifi set up is:
 
 ![image](https://github.com/user-attachments/assets/f10c05ea-cbbf-4032-9e72-1ea0327c2eb0)
 
