@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Guide')}"></head>
+<body>
+<div class="page">
+	<th:block th:replace="~{layout :: header('guide')}"></th:block>
+	<div class="body guide">
+		<p class="mut" th:if="${html == null}">The guide is not available in this build.</p>
+		<div th:if="${html != null}" th:utext="${html}"></div>
+	</div>
+</div>
+</body>
+</html>
