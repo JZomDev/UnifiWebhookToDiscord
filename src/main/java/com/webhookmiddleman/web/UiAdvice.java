@@ -9,7 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
-/** Adds {@code csrf}, {@code envVars} (banner, logged-in only), {@code notPersistent} and {@code configDir} to every view. */
+/** Adds {@code csrf}, {@code envVars} (banner, logged-in only), {@code notPersistent}, {@code configDir} and {@code settingsLoadNotice} to every view. */
 @ControllerAdvice
 public class UiAdvice
 {
@@ -35,5 +35,6 @@ public class UiAdvice
 		}
 		model.addAttribute("notPersistent", !store.isPersistent());
 		model.addAttribute("configDir", store.directory().toString());
+		model.addAttribute("settingsLoadNotice", store.loadNotice());
 	}
 }

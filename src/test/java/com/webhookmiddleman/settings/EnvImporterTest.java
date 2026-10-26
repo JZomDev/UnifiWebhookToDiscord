@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -115,6 +116,20 @@ class EnvImporterTest
 		EnvImporter.importFrom(env("port", "70000"), store);
 		assertEquals(8080, store.snapshot().webhookPort);
 		assertFalse(store.snapshot().imported.contains("port"));
+	}
+
+	@Test
+	void importThatChangesNothingDoesNotWrite() throws Exception
+	{
+		SettingsStore store = newStore();
+		Path file = dir.resolve("settings.json");
+		EnvImporter.importFrom(env("PATH", "/bin", "webhook", "not-a-url"), store);
+		assertFalse(Files.exists(file));
+
+		EnvImporter.importFrom(env("UUID_1", "u1"), store);
+		Files.writeString(file, "sentinel");
+		EnvImporter.importFrom(env("UUID_1", "u1"), store);
+		assertEquals("sentinel", Files.readString(file));
 	}
 
 	@Test

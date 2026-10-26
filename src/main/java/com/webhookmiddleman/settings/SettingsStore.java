@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -25,12 +28,16 @@ import org.slf4j.LoggerFactory;
 public class SettingsStore
 {
 	private static final Logger log = LoggerFactory.getLogger(SettingsStore.class);
+	private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 	private static final Pattern MAC = Pattern.compile("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$");
 
 	private final Path file;
 	private Settings settings = new Settings();
 	private volatile boolean persistent;
 	private final boolean mounted;
+	private volatile String loadNotice;
+	/** Set when an unreadable settings file could not be moved aside, so it is never overwritten. */
+	private boolean writesBlocked;
 
 	public SettingsStore(Path file)
 	{
@@ -80,10 +87,30 @@ public class SettingsStore
 		persist();
 	}
 
+	/** Applies {@code change} and saves only if it returns true (it changed something). */
+	public synchronized boolean updateIf(Predicate<Settings> change)
+	{
+		boolean changed = change.test(settings);
+		if (changed)
+		{
+			persist();
+		}
+		return changed;
+	}
+
 	/** True if saved settings survive a container update: the file is writable and, if checked, on a mounted volume. */
 	public boolean isPersistent()
 	{
 		return persistent && mounted;
+	}
+
+	/**
+	 * A message for the UI when the settings file could not be read at startup
+	 * (it is then moved aside, never overwritten), or null.
+	 */
+	public String loadNotice()
+	{
+		return loadNotice;
 	}
 
 	public synchronized String cameraName(String normalizedMac)
@@ -131,15 +158,50 @@ public class SettingsStore
 		}
 		catch (Exception e)
 		{
-			log.warn("Could not read settings file {}; using defaults: {}", file, e.toString());
 			settings = new Settings();
 			Path parent = file.toAbsolutePath().getParent();
 			persistent = parent != null && Files.isDirectory(parent) && Files.isWritable(parent);
+			setAside(e);
+		}
+	}
+
+	/** Moves an unreadable settings file to {@code settings.json.corrupt-<yyyyMMddHHmmss>} so it is not overwritten. */
+	private void setAside(Exception readError)
+	{
+		Path abs = file.toAbsolutePath();
+		String base = abs.getFileName() + ".corrupt-" + LocalDateTime.now().format(STAMP);
+		Path target = abs.resolveSibling(base);
+		for (int i = 1; Files.exists(target, LinkOption.NOFOLLOW_LINKS); i++)
+		{
+			target = abs.resolveSibling(base + "-" + i);
+		}
+		try
+		{
+			Files.move(abs, target);
+			log.warn("Could not read settings file {} ({}); moved it to {} and started with default settings",
+				abs, readError.toString(), target.getFileName());
+			loadNotice = "The settings file could not be read and was set aside as " + target.getFileName()
+				+ " in " + directory() + ". Default settings are in use.";
+		}
+		catch (IOException | RuntimeException moveError)
+		{
+			log.warn("Could not read settings file {} ({}) and could not move it aside ({}); not saving any changes",
+				abs, readError.toString(), moveError.toString());
+			writesBlocked = true;
+			persistent = false;
+			loadNotice = "The settings file " + abs.getFileName() + " in " + directory()
+				+ " could not be read or set aside. Default settings are in use and changes are not saved"
+				+ " until the file is fixed or removed.";
 		}
 	}
 
 	private void persist()
 	{
+		if (writesBlocked)
+		{
+			persistent = false;
+			return;
+		}
 		JSONObject o = new JSONObject();
 		o.put("passwordHash", settings.passwordHash == null ? JSONObject.NULL : settings.passwordHash);
 		o.put("mustChangePassword", settings.mustChangePassword);

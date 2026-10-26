@@ -20,6 +20,8 @@ On Unraid, add a Path mapping from container path `/config` to a host path such 
 
 If `/config` is not a mapped volume, or is not writable, the app still runs and the UI shows a red warning naming the config directory: settings are kept only inside the container and are lost on update or recreate. In that state the legacy environment variables keep working as before (they are imported on every start), and the environment-variable banner asks you to keep them until you have mapped the volume. Once `/config` is mapped and writable the warning disappears.
 
+If `settings.json` cannot be read (for example it was corrupted), the app moves it aside as `settings.json.corrupt-<timestamp>` in the same folder, starts with default settings (login `admin` / `admin` again) and shows a notice in the UI. Nothing is overwritten, so you can inspect or restore the old file.
+
 ```
 docker run -d -p 45462:45462 -p 8080:8080 -v /path/to/config:/config redzguilt/unifi-webhook-to-discord
 ```

@@ -47,8 +47,10 @@ public final class EnvImporter
 		}
 		present.addAll(macs.values());
 
-		store.update(s ->
+		// Every change below goes with a new entry in s.imported, so a no-op import does not rewrite the file.
+		store.updateIf(s ->
 		{
+			int before = s.imported.size();
 			String webhook = env.get("webhook");
 			if (webhook != null && WEBHOOK.matcher(webhook.trim()).matches() && s.imported.add("webhook"))
 			{
@@ -96,6 +98,7 @@ public final class EnvImporter
 					}
 				}
 			}
+			return s.imported.size() != before;
 		});
 		return present;
 	}
