@@ -66,6 +66,7 @@ public class AuthController
 		HttpSession session = request.getSession();
 		session.setAttribute(AuthInterceptor.AUTH, Boolean.TRUE);
 		session.setAttribute(AuthInterceptor.CSRF, AuthInterceptor.newToken());
+		// AuthInterceptor sends "/" on to /change-password while a change is required.
 		return "redirect:/";
 	}
 
@@ -90,7 +91,7 @@ public class AuthController
 	@GetMapping("/change-password")
 	public String changePasswordPage(Model model)
 	{
-		model.addAttribute("forced", store.snapshot().mustChangePassword);
+		model.addAttribute("forced", AuthInterceptor.passwordChangeRequired(store.snapshot()));
 		return "change-password";
 	}
 
@@ -103,7 +104,7 @@ public class AuthController
 		{
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			model.addAttribute("error", error);
-			model.addAttribute("forced", store.snapshot().mustChangePassword);
+			model.addAttribute("forced", AuthInterceptor.passwordChangeRequired(store.snapshot()));
 			return "change-password";
 		}
 		String hash = encoder.encode(password);

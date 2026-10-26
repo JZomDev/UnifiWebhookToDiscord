@@ -162,6 +162,14 @@ class CameraControllerTest
 	}
 
 	@Test
+	void addFormNameLengthMatchesServerCap() throws Exception
+	{
+		mvc.perform(get("/").session(login.session()))
+			.andExpect(content().string(Matchers.containsString("placeholder=\"Camera name\" maxlength=\"" + CameraController.MAX_NAME + "\"")))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("maxlength=\"200\""))));
+	}
+
+	@Test
 	void bannerListsEnvVarsWhenPresent() throws Exception
 	{
 		mvc.perform(get("/").session(login.session()))

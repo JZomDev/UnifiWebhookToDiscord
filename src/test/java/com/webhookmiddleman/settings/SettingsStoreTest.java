@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -128,6 +130,18 @@ class SettingsStoreTest
 		});
 		assertTrue(store.isPersistent());
 		assertEquals(dir.toAbsolutePath().normalize(), seen[0]);
+	}
+
+	@Test
+	void settingsFileIsOwnerReadWriteOnly() throws Exception
+	{
+		assumeTrue(dir.getFileSystem().supportedFileAttributeViews().contains("posix"));
+		Path file = dir.resolve("settings.json");
+		Files.writeString(file, "{}");
+		Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r--r--"));
+		new SettingsStore(file).update(s -> s.webhook = "w");
+		assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(file)));
+		assertFalse(Files.exists(dir.resolve("settings.json.tmp")));
 	}
 
 	@Test

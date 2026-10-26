@@ -109,6 +109,18 @@ class EnvImporterTest
 	}
 
 	@Test
+	void blankMacValueSkippedUntilItHasAName()
+	{
+		SettingsStore store = newStore();
+		List<String> vars = EnvImporter.importFrom(env("AA:AA:AA:AA:AA:AA", "  "), store);
+		assertEquals(List.of("AA:AA:AA:AA:AA:AA"), vars);
+		assertTrue(store.snapshot().cameras.isEmpty());
+		assertFalse(store.snapshot().imported.contains("camera:AA:AA:AA:AA:AA:AA"));
+		EnvImporter.importFrom(env("AA:AA:AA:AA:AA:AA", "Front"), store);
+		assertEquals("Front", store.snapshot().cameras.get("AA:AA:AA:AA:AA:AA"));
+	}
+
+	@Test
 	void invalidPortIgnored()
 	{
 		SettingsStore store = newStore();

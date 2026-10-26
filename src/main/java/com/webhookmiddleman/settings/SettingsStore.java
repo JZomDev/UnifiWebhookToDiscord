@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -217,6 +218,12 @@ public class SettingsStore
 		{
 			Path abs = file.toAbsolutePath();
 			Path tmp = abs.resolveSibling(abs.getFileName() + ".tmp");
+			Files.deleteIfExists(tmp);
+			if (abs.getFileSystem().supportedFileAttributeViews().contains("posix"))
+			{
+				// Owner-only: the file holds the password hash and the webhook token.
+				Files.createFile(tmp, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+			}
 			Files.writeString(tmp, o.toString(2), StandardCharsets.UTF_8);
 			try
 			{

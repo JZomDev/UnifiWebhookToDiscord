@@ -15,7 +15,7 @@
 					<span th:text="${cam.value}">Front Door</span>
 					<form class="inline" method="post" style="display:none" th:action="@{/cameras/{mac}(mac=${cam.key})}">
 						<input type="hidden" name="_csrf" th:value="${csrf}">
-						<input name="name" maxlength="100" required th:value="${cam.value}">
+						<input name="name" maxlength="100" th:maxlength="${maxName}" required th:value="${cam.value}">
 						<button type="submit" class="p">Save</button>
 					</form>
 				</td>
@@ -31,7 +31,7 @@
 		<form class="add" method="post" th:action="@{/cameras}">
 			<input type="hidden" name="_csrf" th:value="${csrf}">
 			<input name="mac" placeholder="MAC address" required th:value="${mac}">
-			<input name="name" placeholder="Camera name" maxlength="200" required th:value="${name}">
+			<input name="name" placeholder="Camera name" maxlength="100" th:maxlength="${maxName}" required th:value="${name}">
 			<button type="submit" class="p">Add</button>
 		</form>
 		<p class="err" th:if="${addError}" th:text="${addError}">Error</p>

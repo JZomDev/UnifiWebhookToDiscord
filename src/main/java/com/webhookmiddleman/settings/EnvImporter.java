@@ -90,7 +90,8 @@ public final class EnvImporter
 			for (Map.Entry<String, String> e : macs.entrySet())
 			{
 				String value = env.get(e.getValue());
-				if (value != null && s.imported.add("camera:" + e.getKey()))
+				// A blank value is skipped (not marked imported), so it is picked up once it has a name.
+				if (value != null && !value.isBlank() && s.imported.add("camera:" + e.getKey()))
 				{
 					if (!s.cameras.containsKey(e.getKey()))
 					{

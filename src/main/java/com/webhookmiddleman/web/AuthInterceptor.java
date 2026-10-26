@@ -1,5 +1,6 @@
 package com.webhookmiddleman.web;
 
+import com.webhookmiddleman.settings.Settings;
 import com.webhookmiddleman.settings.SettingsStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -71,12 +72,18 @@ public class AuthInterceptor implements HandlerInterceptor
 			response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid or missing CSRF token");
 			return false;
 		}
-		if (store.snapshot().mustChangePassword && !"/change-password".equals(path) && !"/logout".equals(path))
+		if (passwordChangeRequired(store.snapshot()) && !"/change-password".equals(path) && !"/logout".equals(path))
 		{
 			response.sendRedirect(request.getContextPath() + "/change-password");
 			return false;
 		}
 		return true;
+	}
+
+	/** The password must be changed while flagged, or while no hash is stored (the default admin/admin). */
+	static boolean passwordChangeRequired(Settings s)
+	{
+		return s.mustChangePassword || s.passwordHash == null;
 	}
 
 	private static boolean csrfMatches(HttpSession session, String sent)

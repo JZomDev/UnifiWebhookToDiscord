@@ -131,6 +131,19 @@ class AuthFlowTest
 	}
 
 	@Test
+	void missingHashForcesChangeEvenWhenFlagCleared() throws Exception
+	{
+		store.update(s ->
+		{
+			s.passwordHash = null;
+			s.mustChangePassword = false;
+		});
+		MockHttpSession session = loginDefault();
+		mvc.perform(get("/").session(session)).andExpect(redirectedUrl("/change-password"));
+		mvc.perform(get("/settings").session(session)).andExpect(redirectedUrl("/change-password"));
+	}
+
+	@Test
 	void shortPasswordRejected() throws Exception
 	{
 		MockHttpSession session = loginDefault();

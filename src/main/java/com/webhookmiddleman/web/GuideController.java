@@ -9,6 +9,8 @@ import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.AttributeProvider;
 import org.commonmark.renderer.html.HtmlRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class GuideController
 {
+	private static final Logger log = LoggerFactory.getLogger(GuideController.class);
+
 	static final String ASSET_PREFIX = "/guide-assets/";
 
 	private final Parser parser = Parser.builder().build();
@@ -61,6 +65,7 @@ public class GuideController
 		}
 		catch (IOException e)
 		{
+			log.warn("Could not read guide {}: {}", location, e.toString());
 			return null;
 		}
 	}
