@@ -28,6 +28,14 @@
 			<div class="hint">Match your container's port mapping for this port. Changing it rebinds the listener immediately.
 				The web UI uses port <span th:text="${uiPort}">45462</span>.</div>
 			<div class="row">
+				<label for="consoleUrl">UniFi console link</label>
+				<input id="consoleUrl" name="consoleUrl" placeholder="https://unifi.ui.com/consoles/..." autocomplete="off">
+				<button type="submit" class="s" th:formaction="@{/settings/console-url}" formnovalidate>Fill UUIDs</button>
+			</div>
+			<div class="hint">Paste any link from unifi.ui.com while viewing your console and the two boxes below are filled in.
+				<span class="ok" th:if="${consoleFilled}">UUIDs filled in. Click Save to keep them.</span>
+				<span class="err" th:if="${consoleError}" th:text="${consoleError}">Not a console link.</span></div>
+			<div class="row">
 				<label for="uuid1">Console UUID 1</label>
 				<input id="uuid1" name="uuid1" placeholder="optional" th:value="${form.uuid1}">
 			</div>

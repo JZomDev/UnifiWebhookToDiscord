@@ -5,6 +5,7 @@ import com.webhookmiddleman.settings.Settings;
 import com.webhookmiddleman.settings.SettingsStore;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,10 @@ public class SettingsController
 	static final String WEBHOOK_ERROR = "Enter a Discord webhook URL like https://discord.com/api/webhooks/123/abc, or leave it empty.";
 	static final String TEST_WEBHOOK_ERROR = "Enter a valid Discord webhook URL (https://discord.com/api/webhooks/...) to send a test message.";
 	static final String PORT_ERROR = "Enter a port between 1 and 65535.";
+
+	/** A unifi.ui.com console link: {@code https://unifi.ui.com/consoles/<UUID 1>:<UUID 2>[/...]}. */
+	static final Pattern CONSOLE_URL = Pattern.compile("https://unifi\\.ui\\.com/consoles/([A-Za-z0-9_\\-]+):([A-Za-z0-9_\\-]+)(?:[/?#].*)?");
+	static final String CONSOLE_URL_ERROR = "Paste a link like https://unifi.ui.com/consoles/<id>:<number>/protect/... from your browser's address bar.";
 
 	private final SettingsStore store;
 	private final WebhookListener listener;
@@ -145,6 +150,33 @@ public class SettingsController
 		TestMessageSender.Result result = sender.send(form.webhook());
 		model.addAttribute(result.ok() ? "testOk" : "testError", result.message());
 		model.addAttribute("testUnsaved", !form.webhook().equals(s.webhook));
+		return view(model);
+	}
+
+	/**
+	 * Fills the two console UUID boxes from a unifi.ui.com console URL. Nothing is saved; the other typed values are kept.
+	 */
+	@PostMapping("/settings/console-url")
+	public String fillFromConsoleUrl(@RequestParam(defaultValue = "") String consoleUrl, @RequestParam(required = false) String webhook,
+		@RequestParam(required = false) String webhookPort, @RequestParam(required = false) String uuid1,
+		@RequestParam(required = false) String uuid2, @RequestParam(required = false) String showEnvReminder,
+		HttpServletResponse response, Model model)
+	{
+		Settings s = store.snapshot();
+		Matcher m = CONSOLE_URL.matcher(consoleUrl.strip());
+		boolean found = m.matches();
+		model.addAttribute("form", new Form(webhook != null ? webhook.strip() : s.webhook,
+			webhookPort != null ? webhookPort.strip() : String.valueOf(s.webhookPort),
+			found ? m.group(1) : uuid1 != null ? uuid1.strip() : s.uuid1,
+			found ? m.group(2) : uuid2 != null ? uuid2.strip() : s.uuid2,
+			webhookPort != null ? showEnvReminder != null : s.showEnvReminder));
+		if (!found)
+		{
+			model.addAttribute("consoleError", CONSOLE_URL_ERROR);
+			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			return view(model);
+		}
+		model.addAttribute("consoleFilled", true);
 		return view(model);
 	}
 

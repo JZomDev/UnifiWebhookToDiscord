@@ -30,7 +30,7 @@ docker run -d -p 45462:45462 -p 8080:8080 -v /path/to/config:/config redzguilt/u
 
 Open `http://<host>:45462`. The first login is `admin` / `admin`; you are forced to choose a new password straight away.
 
-- **Settings**: the Discord webhook URL, the webhook listen port, the Unifi console UUIDs (optional), and a button that sends a test message to Discord. The listen port must match the container port you map (for example listen port `8080` with a `8080` mapping).
+- **Settings**: the Discord webhook URL, the webhook listen port, the Unifi console UUIDs (optional; paste any `https://unifi.ui.com/consoles/<id>:<number>/...` link into "UniFi console link" and click "Fill UUIDs" to fill both boxes), and a button that sends a test message to Discord. The listen port must match the container port you map (for example listen port `8080` with a `8080` mapping).
 - **Cameras**: add a camera by its MAC address and a display name. Unknown MAC addresses appear in Discord as "unknown device".
 - **Guide**: renders `guides/setup.md`, the setup walkthrough.
 

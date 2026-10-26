@@ -326,6 +326,61 @@ class SettingsControllerTest
 		verify(sender, never()).send(anyString());
 	}
 
+	static final String CONSOLE_URL = "https://unifi.ui.com/consoles/784558C04AB3000000000622CD6000066AF6370000000:124"
+		+ "/protect/alarm-manager/edit/01a12223-2361-7081-892c-3c3ab3916428";
+	static final String CONSOLE_ID = "784558C04AB3000000000622CD6000066AF6370000000";
+
+	ResultActions console(String url) throws Exception
+	{
+		return mvc.perform(authed(post("/settings/console-url")).param("consoleUrl", url).param("webhook", OTHER_HOOK)
+			.param("webhookPort", String.valueOf(listenPort)).param("uuid1", "old-one").param("uuid2", "old-two"));
+	}
+
+	@Test
+	void consoleUrlFillsBothUuidBoxesWithoutSaving() throws Exception
+	{
+		console(CONSOLE_URL).andExpect(status().isOk())
+			.andExpect(content().string(Matchers.containsString("value=\"" + CONSOLE_ID + "\"")))
+			.andExpect(content().string(Matchers.containsString("value=\"124\"")))
+			// other typed (unsaved) values are kept
+			.andExpect(content().string(Matchers.containsString(OTHER_HOOK)))
+			.andExpect(content().string(Matchers.not(Matchers.containsString("old-one"))));
+		assertEquals("", store.snapshot().uuid1, "filling the boxes must not save");
+		assertEquals("", store.snapshot().uuid2);
+	}
+
+	@Test
+	void consoleUrlWithoutPathAndWithSpacesIsAccepted() throws Exception
+	{
+		console("  https://unifi.ui.com/consoles/ABC123:7  ").andExpect(status().isOk())
+			.andExpect(content().string(Matchers.containsString("value=\"ABC123\"")))
+			.andExpect(content().string(Matchers.containsString("value=\"7\"")));
+	}
+
+	@Test
+	void consoleUrlFromAnotherHostOrWithoutIdsIsRejected() throws Exception
+	{
+		for (String bad : List.of("", "not a url", "https://evil.example/consoles/A:1",
+			"https://unifi.ui.com.evil.example/consoles/A:1", "https://evil.example/?x=https://unifi.ui.com/consoles/A:1",
+			"http://unifi.ui.com/consoles/A:1", "https://unifi.ui.com/consoles/A", "https://unifi.ui.com/consoles/A:/protect",
+			"https://unifi.ui.com/protect/dashboard"))
+		{
+			console(bad).andExpect(status().isBadRequest())
+				.andExpect(content().string(Matchers.containsString("unifi.ui.com/consoles/")))
+				// the boxes keep what was typed
+				.andExpect(content().string(Matchers.containsString("value=\"old-one\"")));
+		}
+		assertEquals("", store.snapshot().uuid1);
+	}
+
+	@Test
+	void consoleUrlRouteRequiresLoginAndCsrf() throws Exception
+	{
+		mvc.perform(post("/settings/console-url").param("consoleUrl", CONSOLE_URL)).andExpect(status().is3xxRedirection());
+		mvc.perform(post("/settings/console-url").session(login.session()).param("consoleUrl", CONSOLE_URL))
+			.andExpect(status().isForbidden());
+	}
+
 	@Test
 	void testButtonShowsFailureMessage() throws Exception
 	{
