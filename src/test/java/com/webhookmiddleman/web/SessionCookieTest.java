@@ -1,5 +1,6 @@
 package com.webhookmiddleman.web;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,6 +61,34 @@ class SessionCookieTest
 	void httpsProxyCookieIsSecure() throws Exception
 	{
 		assertTrue(sessionCookie("https").toLowerCase().contains("; secure"));
+	}
+
+	String redirectLocation(String proto) throws Exception
+	{
+		HttpRequest.Builder b = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/"));
+		if (proto != null)
+		{
+			b.header("X-Forwarded-Proto", proto);
+		}
+		HttpResponse<String> res = client.send(b.build(), HttpResponse.BodyHandlers.ofString());
+		assertEquals(302, res.statusCode());
+		return res.headers().firstValue("Location").orElseThrow();
+	}
+
+	@Test
+	void httpsProxyRedirectDoesNotDowngradeToHttp() throws Exception
+	{
+		String location = redirectLocation("https");
+		assertFalse(location.startsWith("http://"), location);
+		assertTrue(location.equals("/login") || location.startsWith("https://"), location);
+	}
+
+	@Test
+	void plainHttpRedirectStillReachesLogin() throws Exception
+	{
+		String location = redirectLocation(null);
+		URI resolved = URI.create("http://localhost:" + port + "/").resolve(location);
+		assertEquals("http://localhost:" + port + "/login", resolved.toString());
 	}
 
 	@Test
